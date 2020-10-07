@@ -1,0 +1,16 @@
+LCID	Locale	1 AM	1 PM
+0x7C2E	dsb	 1 AM	 1 PM
+0x7C3B	smj	 1 AM	 1 PM
+0x7C43	uz-Latn	 1 AM	 1 PM
+0x7C46	pa-Arab	 1 AM	 1 PM
+0x7C50	mn-Mong	 1 AM	 1 PM
+0x7C59	sd-Arab	 1 AM	 1 PM
+0x7C5C	chr-Cher	 1 AM	 1 PM
+0x7C5D	iu-Latn	 1 AM	 1 PM
+0x7C5F	tzm-Latn	 1 AM	 1 PM
+0x7C67	ff-Latn	 1 AM	 1 PM
+0x7C68	ha-Latn	 1 Safe	 1 Yamma
+0x7C92	ku-Arab	 1 AM	 1 PM
+0xFC19	ru-RU	 1 AM	 1 PM
+0xFC22	uk-UA	 1 AM	 1 PM
+0xFC23	be-BY	 1 AM	 1 PM
