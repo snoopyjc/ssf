@@ -59,4 +59,5 @@ should be (`General`, `Number`, `Currency`, `Accounting`, `Date`, `Short Date`, 
 References
 ----------
 
-- `MS-XLSB`: Excel (.xlsb) Binary File Format
+- `MS-XLSB`: `Excel (.xlsb) Binary File Format <https://docs.microsoft.com/en-us/openspecs/office_file_formats/ms-xlsb/acc8aa92-1f02-4167-99f5-84f9f676b95a>`_
+- `ECMA-376`: `Number Format Specification <https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_numFmts_topic_ID0E6KK6.html>`_
