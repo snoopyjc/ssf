@@ -2962,6 +2962,21 @@ class SSF:
                 return True
         return False
 
+    @staticmethod
+    def _allnonnegcond(rr):         # rr is a match object
+        """Is this conditional True for all non-negative numbers?  Fixes https://github.com/SheetJS/ssf/issues/78"""
+        if rr is None:
+            return False
+        thresh = float(rr.group(2))
+        op = rr.group(1)
+        if op == ">":
+            if thresh < 0:
+                return True
+        elif op == ">=":
+            if thresh <= 0:
+                return True
+        return False
+
     def _choose_fmt(self, f, v):
         fmt = self._split_fmt(f)
         l = len(fmt)
@@ -3001,7 +3016,7 @@ class SSF:
             elif not m1 and v > 0:
                 return [l, fmt[0]]
             elif not m2 and v < 0:
-                if lf >= 3:
+                if lf >= 3 or SSF._allnonnegcond(m1): # issues/78
                     return [l, fmt[1]]
                 else:
                     return [1, fmt[1]]
@@ -3510,4 +3525,5 @@ class SSF:
 
 if __name__ == '__main__':      # pragma nocover
     pass
-    #ssf = SSF(errors='raise')
+    ssf = SSF(errors='raise')
+    print(ssf.format('[>=0]0;00', -1))  # 01

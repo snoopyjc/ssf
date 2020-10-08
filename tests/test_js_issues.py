@@ -259,3 +259,16 @@ def test_issue_76():
 def test_issue_77():
     assert ssf.format('#????', -12.3) == '-  12'
     assert ssf.format('#????', -12) == '-  12'
+
+def test_issue_78():
+    with open('tests/ssf78.tsv', 'r') as t78:
+        data = t78.read().splitlines()
+
+    row1 = data[0].split('\t')[2:]
+    for i, c in enumerate(row1, start=2):
+        for row in data[1:]:
+            spl = row.split('\t')
+            fmt = spl[0].format(c)
+            actual = ssf.format(fmt, int(spl[1]))
+            expected = spl[i]
+            assert actual == expected
