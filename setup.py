@@ -38,10 +38,13 @@ setup(
     keywords='ssf',
     name='ssf',
     packages=find_packages(include=['ssf', 'ssf.*']),
+    package_data = {
+        '':['*.json', '*.tsv', '*.yaml']
+        },
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/snoopyjc/ssf',
-    version='0.1.1',
+    version='0.1.2',
     zip_safe=False,
 )

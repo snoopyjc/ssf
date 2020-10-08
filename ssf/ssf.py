@@ -79,10 +79,10 @@ class SSF_LOCALE:
                 if os.path.isfile(currency_file):
                     with open(currency_file, 'r', encoding='utf-8') as cf:
                         currencies = json.load(cf)
-                for country_name, attr in currencies.items():
-                    if 'abbreviation' not in attr:
-                        continue        # Skip the 'comment'
-                    SSF_LOCALE.currency_map[attr['abbreviation']] = attr['currency']    # e.g. US to USD
+                    for country_name, attr in currencies.items():
+                        if 'abbreviation' not in attr:
+                            continue        # Skip the 'comment'
+                        SSF_LOCALE.currency_map[attr['abbreviation']] = attr['currency']    # e.g. US to USD
 
             if SSF_LOCALE.table_map is None:
                 table_file = os.path.join(os.path.dirname(__file__), 'localize_table.yaml')
@@ -166,7 +166,7 @@ class SSF_LOCALE:
                         SSF_LOCALE.lcid_max = max(SSF_LOCALE.lcid_max, i_id)
 
             locale = self.normalize_locale(locale) or default_locale()
-            if locale in self.lcid_map:
+            if self.lcid_map and locale in self.lcid_map:
                 locale = self.lcid_map[locale]
 
             sep = '-' if '-' in locale else '_'
@@ -192,7 +192,7 @@ class SSF_LOCALE:
                 self.locale = None
                 locale = None
 
-            if self.locale_name in SSF_LOCALE.am_pm_map:
+            if SSF_LOCALE.am_pm_map and self.locale_name in SSF_LOCALE.am_pm_map:
                 self.am, self.pm = SSF_LOCALE.am_pm_map[self.locale_name]
             elif locale:
                 self.am = locale.day_periods['format']['abbreviated'].get('am', 'AM')
@@ -208,7 +208,7 @@ class SSF_LOCALE:
                 self.a = locale.day_periods['format']['narrow'].get('am', 'A')
                 self.p = locale.day_periods['format']['narrow'].get('pm', 'P')
 
-            if self.locale_name in SSF_LOCALE.day_month_map:
+            if SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
                 self.days = []
                 self.months = []
                 dmm = SSF_LOCALE.day_month_map[self.locale_name]
@@ -243,7 +243,7 @@ class SSF_LOCALE:
                         replace('M', 'm')
                 self.long_date_format = re.sub(r'\bd\b', 'dd', self.long_date_format)
                 self.long_date_format = re.sub(r'\by\b', 'yyyy', self.long_date_format)
-            elif self.locale_name in SSF_LOCALE.day_month_map:
+            elif SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
                 if decimal_separator is not None:
                     self.decimal_point = decimal_separator
                 if thousands_separator is not None:
@@ -386,7 +386,7 @@ class SSF:
             s_l += decimal_separator if decimal_separator and decimal_separator != self.curl.decimal_point else ''
             s_l += thousands_separator if thousands_separator and thousands_separator != self.curl.thousands_sep else ''
             self._locale_cache[s_l] = self.curl
-            if s_l in SSF_LOCALE.lcid_reverse_map:
+            if SSF_LOCALE.lcid_reverse_map and s_l in SSF_LOCALE.lcid_reverse_map:
                 self._locale_cache[str(SSF_LOCALE.lcid_reverse_map[s_l])] = self.curl
         self._tzinfo = tzinfo
         if not tzinfo:
@@ -1054,7 +1054,7 @@ class SSF:
 
         def era_data(dt):
             """Get the era data (e, g, gg, ggg) for a the era given by the given date.  Return year if not found"""
-            era = SSF_LOCALE.era_map.get(self.tmpl.locale_name)
+            era = SSF_LOCALE.era_map.get(self.tmpl.locale_name) if SSF_LOCALE.era_map else None
             if not era:
                 return (dt.year, None, None, None)
             for e in era:
@@ -2181,12 +2181,12 @@ class SSF:
 
         if self.fmtl.dbnum:     # Handle [DBNumX]
             key = f'{self.fmtl.dbnum},{self.tmpl.locale_name}'
-            if key in SSF_LOCALE.dbnum_map:
+            if SSF_LOCALE.dbnum_map and key in SSF_LOCALE.dbnum_map:
                 dbnums = SSF_LOCALE.dbnum_map[key]
                 ostr = replace_num(ostr, dbnums)
         elif self.tmpl.numbers_xx:  # Handle [$-xxyyzzzz]
             key = self.tmpl.numbers_xx
-            if key in SSF_LOCALE.numbers_map:
+            if SSF_LOCALE.numbers_map and key in SSF_LOCALE.numbers_map:
                 numbers = SSF_LOCALE.numbers_map[key]
                 ostr = replace_num(ostr, numbers)
         return ostr
@@ -2370,7 +2370,7 @@ class SSF:
                                 xx = (xxyyzzzz >> 24) & 0x7f
                                 self.fmt_calendar_code = (xxyyzzzz >> 16) & 0x7f     # FIXME: Not currently used
                                 locale_id = xxyyzzzz & 0xffff
-                                if locale_id in SSF_LOCALE.lcid_map:
+                                if SSF_LOCALE.lcid_map and locale_id in SSF_LOCALE.lcid_map:
                                     lcid = SSF_LOCALE.lcid_map[locale_id]
                                     if lcid[0] == '*':      # These do a locale-based substitution of the format
                                         if 'time' in lcid:
@@ -3096,7 +3096,7 @@ class SSF:
         if update_table:
             self._localize_table_from_locale(result.locale_name, prior_locale_names=[self.curl.locale_name, self.fmtl.locale_name])
         self._locale_cache[s_l] = result
-        if s_l in SSF_LOCALE.lcid_reverse_map:
+        if SSF_LOCALE.lcid_reverse_map and s_l in SSF_LOCALE.lcid_reverse_map:
             self._locale_cache[str(SSF_LOCALE.lcid_reverse_map[s_l])] = result
 
         return result
