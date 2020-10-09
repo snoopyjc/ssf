@@ -149,6 +149,8 @@ class SSF_LOCALE:
                         key = f'{db_split[0]},{db_split[2]}'
                         SSF_LOCALE.dbnum_map[key] = db_split[4:]
 
+            def_locale = default_locale() or 'en-US'
+
             if SSF_LOCALE.lcid_map is None:
                 lcid_file = os.path.join(os.path.dirname(__file__), 'lcid.tsv')
                 SSF_LOCALE.lcid_map = {}      # Map from like 0x409 to 'en-US'
@@ -156,7 +158,7 @@ class SSF_LOCALE:
                 if os.path.isfile(lcid_file):
                     with open(lcid_file, 'r', encoding='utf-8') as lf:
                         lcid = lf.read().splitlines()
-                    lcid.append(f'0\t{default_locale()}')     # Add a mapping for 0 for 'system default'
+                    lcid.append(f'0\t{def_locale}')     # Add a mapping for 0 for 'system default'
                     for lc in lcid[1:]:     # Skip heading
                         l_id, l_t = lc.split('\t')
                         i_id = int(l_id, 16)
@@ -165,7 +167,7 @@ class SSF_LOCALE:
                         SSF_LOCALE.lcid_reverse_map[l_t_s] = i_id
                         SSF_LOCALE.lcid_max = max(SSF_LOCALE.lcid_max, i_id)
 
-            locale = self.normalize_locale(locale) or default_locale()
+            locale = self.normalize_locale(locale) or def_locale
             if self.lcid_map and locale in self.lcid_map:
                 locale = self.lcid_map[locale]
 

@@ -2,6 +2,6 @@
 
 __author__ = """Joe Cool"""
 __email__ = 'snoopyjc@gmail.com'
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 
 from .ssf import SSF
