@@ -10,7 +10,7 @@ import re
 import locale as lcl
 import calendar
 from babel.core import default_locale, Locale, UnknownLocaleError
-from babel.numbers import format_decimal
+from babel.numbers import format_decimal, decimal
 import yaml
 import json
 import os
@@ -32,6 +32,7 @@ class SSF_LOCALE:
     MAX_AMPM=6      # Max chars in "Morning" or "Afternoon", else we use "AM/PM"
 
     def __init__(self, locale=None, locale_support=True, locale_currency=True, decimal_separator=None, thousands_separator=None):
+        decimal.setcontext(decimal.Context(rounding=decimal.ROUND_HALF_UP))
         self.currency_symbol='$'
         self.mon_decimal_point=decimal_separator or '.'
         self.mon_thousands_sep=thousands_separator or ','
@@ -487,7 +488,14 @@ class SSF:
         if isinstance(v, int):
             return str(v)
         if isinstance(v, float):
-            if int(v) == v:
+            av = abs(v)
+            if av == 0.0:
+                return '0'
+            if av < 0.0001:     # issues/80
+                return format_decimal(v, format='@@@@@@@@@@@@@@@', locale='en_US')
+            elif av > 1E22:     # issues/80
+                return format_decimal(v, format='@@@@@@@@@@@@@@@', locale='en_US')
+            elif int(v) == v:
                 return str(int(v))
             return str(v)
         return str(v)
@@ -1058,11 +1066,11 @@ class SSF:
             """Get the era data (e, g, gg, ggg) for a the era given by the given date.  Return year if not found"""
             era = SSF_LOCALE.era_map.get(self.tmpl.locale_name) if SSF_LOCALE.era_map else None
             if not era:
-                return (dt.year, None, None, None)
+                return (dt.year, '', '', '')        # Issue #1
             for e in era:
                 if dt > e.dt:
                     return ((dt.year - e.dt.year)+1, e.g, e.gg, e.ggg)
-            return (dt.year, None, None, None)
+            return (dt.year, '', '', '')            # Issue #1
 
         #switch(type) {
         #case 98: /* 'b' buddhist year */
@@ -1237,7 +1245,12 @@ class SSF:
 
         def write_num_exp(fmt, val):
             """For exponents, get the exponent and mantissa and format them separately"""
-            idx = fmt.find("E") - fmt.find(".") - 1
+            # issues/79 idx = fmt.find("E") - fmt.find(".") - 1
+            pdot = fmt.find(".")        # issues/79
+            if pdot >= 0:               # issues/79
+                idx = fmt.find("E") - pdot - 1
+            else:
+                idx = 0
             # For the special case of engineering notation, "shift" the decimal
             #if(re.match(r'^#+0.0E\+0$', fmt)):
             m = re.match(r'^(?P<mantbd>[#?0]+[#?0])(?P<mantad>[.][#?0]*)?E(?P<exps>[-+])(?P<exp>[#?0]+)$', fmt)
@@ -1291,6 +1304,16 @@ class SSF:
             #if(fmt.match(/E\-/) && o.match(/e\+/)) o = o.replace(/e\+/,"e");
             if re.search(r'E\-', fmt) and re.search(r'[Ee]\+', o):
                 o = re.sub(r'[Ee]\+',"e", o)
+            if pdot < 0:                # issues/79
+                o = o.replace('.', '')  # issues/79
+                e = fmt.find("E")-o.find("e")
+            elif '.' not in o:          # issues/79
+                o = o.replace('e', '.e') # issues/79
+                e = fmt.find(".")-o.find(".")
+            else:
+                e = fmt.find(".")-o.find(".")
+            if e > 0:           # issues/79
+                o = hashq(fmt[:e]) + o
             return o.replace("e","E").replace("E", self.fmtl.exponential).replace("+", self.fmtl.plus_sign). \
                     replace("-", self.fmtl.minus_sign).replace('.', self.fmtl.decimal_point)
 
@@ -1660,7 +1683,12 @@ class SSF:
             # issues/50 return self._write_num(type, sfmt, val * 10**(2*mul)) + SSF._fill(self.fmtl.percent_sign,mul)
 
         def write_num_exp2(fmt, val):
-            idx = fmt.find("E") - fmt.find(".") - 1
+            # issues/79 idx = fmt.find("E") - fmt.find(".") - 1
+            pdot = fmt.find(".")        # issues/79
+            if pdot >= 0:               # issues/79
+                idx = fmt.find("E") - pdot - 1
+            else:
+                idx = 0
             #if re.match(r'^#+0.0E\+0$', fmt):
             m = re.match(r'^(?P<mantbd>[#?0]+[#?0])(?P<mantad>[.][#?0]*)?E(?P<exps>[-+])(?P<exp>[#?0]+)$', fmt)
             if m:
@@ -1708,6 +1736,16 @@ class SSF:
                 o = o[:-1] + "0" + o[-1]
             if re.search(r'E\-', fmt) and re.search(r'[Ee]\+', o):
                 o = re.sub(r'[Ee]\+',"e", o)
+            if pdot < 0:                # issues/79
+                o = o.replace('.', '')  # issues/79
+                e = fmt.find("E")-o.find("e")
+            elif '.' not in o:          # issues/79
+                o = o.replace('e', '.e') # issues/79
+                e = fmt.find(".")-o.find(".")
+            else:
+                e = fmt.find(".")-o.find(".")
+            if e > 0:           # issues/79
+                o = hashq(fmt[:e]) + o
             return o.replace("e","E").replace(".", self.fmtl.decimal_point).replace("E", self.fmtl.exponential). \
                     replace("+", self.fmtl.plus_sign).replace("-", self.fmtl.minus_sign)
 
@@ -1975,16 +2013,24 @@ class SSF:
     def _escape_dots(self, fmt):            # https://github.com/SheetJS/ssf/issues/68
         out = []
         in_str = False
-        in_esc = True
+        in_esc = False
+        in_brk = False
         dots = 0
         for c in fmt:
             if in_esc:
                 out.append(c)
                 in_esc = False
+            elif in_brk:
+                out.append(c)
+                if c == ']':
+                    in_brk = False
             elif c == '"':
                 in_str = not in_str
                 out.append(c)
             elif in_str:
+                out.append(c)
+            elif c == '[':
+                in_brk = True
                 out.append(c)
             elif c in ('_', '*', '\\'):
                 in_esc = not in_esc
@@ -3042,7 +3088,7 @@ class SSF:
             if c == '\\':
                 i += 1
             elif c == '"':
-                in_str = not True
+                in_str = not in_str
             elif in_str:
                 pass
             elif c == '@':
@@ -3171,7 +3217,6 @@ class SSF:
                           8:cs+sign, 9:' '+cs+sign, 10:sign, 11:sign,
                           12:cs, 13:' '+cs, 14:'', 15:'',
                           16:sign+cs, 17:sign+' '+cs, 18:sign, 19:sign}
-            # FIXME: 
             # Handle accounting formats and ( ... ).  Handle 0 which can be displayed as '-'.
             # Currency: $#,##0.00
             # Currency with (...) for negative: $#,##0.00_);($#,##0.00)
@@ -3370,6 +3415,8 @@ class SSF:
         self.tmpl = self.fmtl   # This one can be overridden by a [$-zzzz] specification and affects date formatting only
 
         sfmt = ""
+        fmt = self.autocorrect_format(fmt)       # Issue #3
+
         #switch(typeof fmt) {
         #case "string":
         if isinstance(fmt, str):
@@ -3522,10 +3569,123 @@ class SSF:
         for i,v in tbl.items():
             self.load_entry(v, i)
 
+    def autocorrect_format(self, fmt):
+        """Run some automatic corrections on the given format, and return the corrected format"""
+        if fmt is None:
+            return "General"
+        if isinstance(fmt, int):
+            return fmt
+
+        if not fmt:
+            return ''
+
+        format_map = {'shortdate': "Short Date", 'longdate': "Long Date"}
+
+        if ';' in fmt:
+            return ';'.join([self.autocorrect_format(f) for f in fmt.split(';')])
+
+        escapes = []
+
+        def preserve_escapes(s):
+            """Take any _, *, \\, or "..." escapes out of string `s`, returning a new string"""
+            nonlocal escapes
+
+            escapes = []
+            out = []
+            in_str = False
+            in_esc = False
+            in_brk = False
+            def escape_it(c):
+                ln = len(escapes)
+                out.append(chr(0) + chr((ln>>4)&0xf) + chr(ln & 0xf))
+                escapes.append(c)
+            for c in s:
+                if in_esc:
+                    escapes[-1] += c
+                    in_esc = False
+                elif in_brk:
+                    escapes[-1] += c
+                    if c == ']':
+                        in_brk = False
+                elif c == '"':
+                    in_str = not in_str
+                    escape_it(c)
+                elif in_str:
+                    escapes[-1] += c
+                elif c == '[':
+                    in_brk = True
+                    escape_it(c)
+                elif c in ('_', '*', '\\'):
+                    in_esc = not in_esc
+                    escape_it(c)
+                else:
+                    out.append(c)
+            return ''.join(out)
+
+        def restore_escapes(s):
+            """Restore any _, *, \\, or "..." escapes back from string `s`, returning a new string"""
+            nonlocal escapes
+            out = []
+            i = 0
+            while i < len(s):
+                c = s[i]
+                if c == chr(0):
+                    ndx = (ord(s[i+1])<<4) | ord(s[i+2])
+                    out.append(escapes[ndx])
+                    i += 2
+                else:
+                    out.append(c)
+                i += 1
+            escapes = []
+            return ''.join(out)
+
+        def rfind_any(s, chars):
+            """Find the right-most occurence of any of the characters in string `chars` and return
+            it's index in s.  Else return -1"""
+            char_set = set(chars)
+            for i in reversed(range(len(s))):
+                c = s[i]
+                if c in char_set:
+                    return i
+            return -1
+
+        fsl = fmt.strip().lower()
+        if fsl in format_map:
+            return format_map[fsl]
+
+        if 'e' in fmt:
+            def change_e(m):
+                return m.group(0).replace('e', 'E')
+            return re.sub(r'(?:[0#?.]e)|(?:e[0#?+0-])', change_e, fmt)
+        elif 'E' in fmt:
+            if re.search(r'(?:[0#?.]E)|(?:E[0#?+0-])', fmt):  # In a numeric context
+                return fmt
+            fmt = preserve_escapes(fmt)
+            fmt = fmt.replace('E', 'e')
+            return restore_escapes(fmt)
+        else:
+            pdot = fmt.find('.')
+            if pdot >= 0 and ',' in fmt[pdot+1:]:
+                # Only preserve escapes if this is a potential candidate for change
+                fmt2 = preserve_escapes(fmt)
+                pdot = fmt2.find('.')
+                last_number_fmt = rfind_any(fmt2, "0#?")
+                if last_number_fmt > pdot and ',' in fmt2[pdot+1:last_number_fmt]:
+                    part1 = fmt2[:pdot+1]
+                    part2 = fmt2[pdot+1:last_number_fmt+1]
+                    part3 = fmt2[last_number_fmt+1:]
+                    p2l = len(part2)
+                    part2 = part2.replace(',', '')
+                    commas = p2l - len(part2)
+                    fmt2 = part1 + part2 + (',' * commas) + part3
+                    return restore_escapes(fmt2)
+        return fmt
+
 #SSF.init_table = init_table;
 #SSF.format = format;
 
 if __name__ == '__main__':      # pragma nocover
     pass
-    ssf = SSF(errors='raise')
-    print(ssf.format('[>=0]0;00', -1))  # 01
+    #ssf = SSF(errors='raise')
+    #print(ssf.format('#.E-0', 3.14))
+    #print(ssf.format('.m,m,', 1))

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<!-- Stolen from: ssf.js (C) 2013-present  SheetJS http://sheetjs.com -->
+<!-- vim: set ts=2: -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>ssf python Live Demo</title>
+<style>
+a { text-decoration: none }
+</style>
+</head>
+<body>
+<pre><b>ssf.py (Spreadsheet Number Format in Python) Live Demo</a></b>
+
+<a href="https://github.com/snoopyjc/ssf">Source Code Repo</a>
+<a href="https://github.com/snoopyjc/ssf/issues">Issues?  Something look weird?  Click here and report an issue</a>
+</pre>
+<table>
+	<tr><td><b>Format code:</b></td><td><input type="text" id="fmt" value="General" size="32"></td></tr>
+	<tr><td><b>Value:</b></td><td><input type="text" id="val" value="3.1415926535"></td></tr>
+	<tr><td><b>Width:</b></td><td><select id="width">
+	<option value="None" selected>None</option>
+	<option value="1">1</option>
+	<option value="2">2</option>
+	<option value="3">3</option>
+	<option value="4">4</option>
+	<option value="5">5</option>
+	<option value="6">6</option>
+	<option value="7">7</option>
+	<option value="8">8</option>
+	<option value="9">9</option>
+	<option value="10">10</option>
+	<option value="11">11</option>
+	<option value="12">12</option>
+	<option value="13">13</option>
+	<option value="14">14</option>
+	<option value="20">20</option>
+	<option value="30">30</option>
+	<option value="40">40</option>
+	<option value="50">50</option>
+			</select></td></tr>
+	<tr><td><b>Locale:</b></td><td>
+	<select id="locale">
+	<option value="None">None</option>
+	<option value="en-US">en-US</option>
+	<option value="af">af</option>
+	<option value="af-ZA">af-ZA</option>
+	<option value="am">am</option>
+	<option value="am-ET">am-ET</option>
+	<option value="ar">ar</option>
+	<option value="ar-AE">ar-AE</option>
+	<option value="ar-BH">ar-BH</option>
+	<option value="ar-DZ">ar-DZ</option>
+	<option value="ar-EG">ar-EG</option>
+	<option value="ar-IQ">ar-IQ</option>
+	<option value="ar-JO">ar-JO</option>
+	<option value="ar-KW">ar-KW</option>
+	<option value="ar-LB">ar-LB</option>
+	<option value="ar-LY">ar-LY</option>
+	<option value="ar-MA">ar-MA</option>
+	<option value="ar-OM">ar-OM</option>
+	<option value="ar-QA">ar-QA</option>
+	<option value="ar-SA">ar-SA</option>
+	<option value="ar-SY">ar-SY</option>
+	<option value="ar-TN">ar-TN</option>
+	<option value="ar-YE">ar-YE</option>
+	<option value="arn">arn</option>
+	<option value="arn-CL">arn-CL</option>
+	<option value="as">as</option>
+	<option value="as-IN">as-IN</option>
+	<option value="az">az</option>
+	<option value="az-Cyrl">az-Cyrl</option>
+	<option value="az-Cyrl_AZ">az-Cyrl_AZ</option>
+	<option value="az-Latn">az-Latn</option>
+	<option value="az-Latn_AZ">az-Latn_AZ</option>
+	<option value="ba">ba</option>
+	<option value="ba-RU">ba-RU</option>
+	<option value="be">be</option>
+	<option value="be-BY">be-BY</option>
+	<option value="be-BY">be-BY</option>
+	<option value="bg">bg</option>
+	<option value="bg-BG">bg-BG</option>
+	<option value="bn">bn</option>
+	<option value="bn-BD">bn-BD</option>
+	<option value="bn-IN">bn-IN</option>
+	<option value="bo">bo</option>
+	<option value="bo-CN">bo-CN</option>
+	<option value="br">br</option>
+	<option value="br-FR">br-FR</option>
+	<option value="bs">bs</option>
+	<option value="bs-Cyrl">bs-Cyrl</option>
+	<option value="bs-Cyrl_BA">bs-Cyrl_BA</option>
+	<option value="bs-Latn">bs-Latn</option>
+	<option value="bs-Latn_BA">bs-Latn_BA</option>
+	<option value="ca">ca</option>
+	<option value="ca-ES">ca-ES</option>
+	<option value="ca-ES_valencia">ca-ES_valencia</option>
+	<option value="chr">chr</option>
+	<option value="chr-Cher">chr-Cher</option>
+	<option value="chr-Cher_US">chr-Cher_US</option>
+	<option value="co">co</option>
+	<option value="co-FR">co-FR</option>
+	<option value="cs">cs</option>
+	<option value="cs-CZ">cs-CZ</option>
+	<option value="cy">cy</option>
+	<option value="cy-GB">cy-GB</option>
+	<option value="da">da</option>
+	<option value="da-DK">da-DK</option>
+	<option value="de">de</option>
+	<option value="de-AT">de-AT</option>
+	<option value="de-CH">de-CH</option>
+	<option value="de-DE">de-DE</option>
+	<option value="de-LI">de-LI</option>
+	<option value="de-LU">de-LU</option>
+	<option value="dsb">dsb</option>
+	<option value="dsb-DE">dsb-DE</option>
+	<option value="dv">dv</option>
+	<option value="dv-MV">dv-MV</option>
+	<option value="dz-BT">dz-BT</option>
+	<option value="el">el</option>
+	<option value="el-GR">el-GR</option>
+	<option value="en">en</option>
+	<option value="en-029">en-029</option>
+	<option value="en-AE">en-AE</option>
+	<option value="en-AU">en-AU</option>
+	<option value="en-BZ">en-BZ</option>
+	<option value="en-CA">en-CA</option>
+	<option value="en-GB">en-GB</option>
+	<option value="en-HK">en-HK</option>
+	<option value="en-IE">en-IE</option>
+	<option value="en-IN">en-IN</option>
+	<option value="en-JM">en-JM</option>
+	<option value="en-MY">en-MY</option>
+	<option value="en-NZ">en-NZ</option>
+	<option value="en-PH">en-PH</option>
+	<option value="en-SG">en-SG</option>
+	<option value="en-TT">en-TT</option>
+	<option value="en-US">en-US</option>
+	<option value="en-ZA">en-ZA</option>
+	<option value="en-ZW">en-ZW</option>
+	<option value="es">es</option>
+	<option value="es-419">es-419</option>
+	<option value="es-AR">es-AR</option>
+	<option value="es-BO">es-BO</option>
+	<option value="es-CL">es-CL</option>
+	<option value="es-CO">es-CO</option>
+	<option value="es-CR">es-CR</option>
+	<option value="es-CU">es-CU</option>
+	<option value="es-DO">es-DO</option>
+	<option value="es-EC">es-EC</option>
+	<option value="es-ES">es-ES</option>
+	<option value="es-ES_tradnl">es-ES_tradnl</option>
+	<option value="es-GT">es-GT</option>
+	<option value="es-HN">es-HN</option>
+	<option value="es-MX">es-MX</option>
+	<option value="es-NI">es-NI</option>
+	<option value="es-PA">es-PA</option>
+	<option value="es-PE">es-PE</option>
+	<option value="es-PR">es-PR</option>
+	<option value="es-PY">es-PY</option>
+	<option value="es-SV">es-SV</option>
+	<option value="es-US">es-US</option>
+	<option value="es-UY">es-UY</option>
+	<option value="es-VE">es-VE</option>
+	<option value="et">et</option>
+	<option value="et-EE">et-EE</option>
+	<option value="eu">eu</option>
+	<option value="eu-ES">eu-ES</option>
+	<option value="fa">fa</option>
+	<option value="fa-IR">fa-IR</option>
+	<option value="ff">ff</option>
+	<option value="ff-Latn">ff-Latn</option>
+	<option value="ff-Latn_SN">ff-Latn_SN</option>
+	<option value="fi">fi</option>
+	<option value="fi-FI">fi-FI</option>
+	<option value="fil">fil</option>
+	<option value="fil-PH">fil-PH</option>
+	<option value="fo">fo</option>
+	<option value="fo-FO">fo-FO</option>
+	<option value="fr">fr</option>
+	<option value="fr-BE">fr-BE</option>
+	<option value="fr-CA">fr-CA</option>
+	<option value="fr-CD">fr-CD</option>
+	<option value="fr-CH">fr-CH</option>
+	<option value="fr-CI">fr-CI</option>
+	<option value="fr-CM">fr-CM</option>
+	<option value="fr-FR">fr-FR</option>
+	<option value="fr-HT">fr-HT</option>
+	<option value="fr-LU">fr-LU</option>
+	<option value="fr-MA">fr-MA</option>
+	<option value="fr-MC">fr-MC</option>
+	<option value="fr-ML">fr-ML</option>
+	<option value="fr-RE">fr-RE</option>
+	<option value="fr-SN">fr-SN</option>
+	<option value="fy">fy</option>
+	<option value="fy-NL">fy-NL</option>
+	<option value="ga">ga</option>
+	<option value="ga-IE">ga-IE</option>
+	<option value="gd">gd</option>
+	<option value="gd-GB">gd-GB</option>
+	<option value="gl">gl</option>
+	<option value="gl-ES">gl-ES</option>
+	<option value="gn">gn</option>
+	<option value="gn-PY">gn-PY</option>
+	<option value="gsw">gsw</option>
+	<option value="gsw-FR">gsw-FR</option>
+	<option value="gu">gu</option>
+	<option value="gu-IN">gu-IN</option>
+	<option value="ha">ha</option>
+	<option value="ha-Latn">ha-Latn</option>
+	<option value="ha-Latn_NG">ha-Latn_NG</option>
+	<option value="haw">haw</option>
+	<option value="haw-US">haw-US</option>
+	<option value="he">he</option>
+	<option value="he-IL">he-IL</option>
+	<option value="hi">hi</option>
+	<option value="hi-IN">hi-IN</option>
+	<option value="hr">hr</option>
+	<option value="hr-BA">hr-BA</option>
+	<option value="hr-HR">hr-HR</option>
+	<option value="hsb">hsb</option>
+	<option value="hsb-DE">hsb-DE</option>
+	<option value="hu">hu</option>
+	<option value="hu-HU">hu-HU</option>
+	<option value="hy">hy</option>
+	<option value="hy-AM">hy-AM</option>
+	<option value="id">id</option>
+	<option value="id-ID">id-ID</option>
+	<option value="ig">ig</option>
+	<option value="ig-NG">ig-NG</option>
+	<option value="ii">ii</option>
+	<option value="ii-CN">ii-CN</option>
+	<option value="is">is</option>
+	<option value="is-IS">is-IS</option>
+	<option value="it">it</option>
+	<option value="it-CH">it-CH</option>
+	<option value="it-IT">it-IT</option>
+	<option value="iu">iu</option>
+	<option value="iu-Cans">iu-Cans</option>
+	<option value="iu-Cans_CA">iu-Cans_CA</option>
+	<option value="iu-Latn">iu-Latn</option>
+	<option value="iu-Latn_CA">iu-Latn_CA</option>
+	<option value="ja">ja</option>
+	<option value="ja-JP">ja-JP</option>
+	<option value="ka">ka</option>
+	<option value="ka-GE">ka-GE</option>
+	<option value="kk">kk</option>
+	<option value="kk-KZ">kk-KZ</option>
+	<option value="kl">kl</option>
+	<option value="kl-GL">kl-GL</option>
+	<option value="km">km</option>
+	<option value="km-KH">km-KH</option>
+	<option value="kn">kn</option>
+	<option value="kn-IN">kn-IN</option>
+	<option value="ko">ko</option>
+	<option value="ko-KR">ko-KR</option>
+	<option value="kok">kok</option>
+	<option value="kok-IN">kok-IN</option>
+	<option value="ks">ks</option>
+	<option value="ks-Arab">ks-Arab</option>
+	<option value="ku">ku</option>
+	<option value="ku-Arab">ku-Arab</option>
+	<option value="ku-Arab_IQ">ku-Arab_IQ</option>
+	<option value="ky">ky</option>
+	<option value="ky-KG">ky-KG</option>
+	<option value="lb">lb</option>
+	<option value="lb-LU">lb-LU</option>
+	<option value="lo">lo</option>
+	<option value="lo-LA">lo-LA</option>
+	<option value="lt">lt</option>
+	<option value="lt-LT">lt-LT</option>
+	<option value="lv">lv</option>
+	<option value="lv-LV">lv-LV</option>
+	<option value="mi">mi</option>
+	<option value="mi-NZ">mi-NZ</option>
+	<option value="mk">mk</option>
+	<option value="mk-MK">mk-MK</option>
+	<option value="ml">ml</option>
+	<option value="ml-IN">ml-IN</option>
+	<option value="mn">mn</option>
+	<option value="mn-Cyrl">mn-Cyrl</option>
+	<option value="mn-MN">mn-MN</option>
+	<option value="mn-Mong">mn-Mong</option>
+	<option value="mn-Mong_CN">mn-Mong_CN</option>
+	<option value="mn-Mong_MN">mn-Mong_MN</option>
+	<option value="moh">moh</option>
+	<option value="moh-CA">moh-CA</option>
+	<option value="mr">mr</option>
+	<option value="mr-IN">mr-IN</option>
+	<option value="ms">ms</option>
+	<option value="ms-BN">ms-BN</option>
+	<option value="ms-MY">ms-MY</option>
+	<option value="mt">mt</option>
+	<option value="mt-MT">mt-MT</option>
+	<option value="my">my</option>
+	<option value="my-MM">my-MM</option>
+	<option value="nb">nb</option>
+	<option value="nb-NO">nb-NO</option>
+	<option value="ne">ne</option>
+	<option value="ne-IN">ne-IN</option>
+	<option value="ne-NP">ne-NP</option>
+	<option value="nl">nl</option>
+	<option value="nl-BE">nl-BE</option>
+	<option value="nl-NL">nl-NL</option>
+	<option value="nn">nn</option>
+	<option value="nn-NO">nn-NO</option>
+	<option value="no">no</option>
+	<option value="nso">nso</option>
+	<option value="nso-ZA">nso-ZA</option>
+	<option value="oc">oc</option>
+	<option value="oc-FR">oc-FR</option>
+	<option value="om">om</option>
+	<option value="om-ET">om-ET</option>
+	<option value="or">or</option>
+	<option value="or-IN">or-IN</option>
+	<option value="pa">pa</option>
+	<option value="pa-Arab">pa-Arab</option>
+	<option value="pa-Arab_PK">pa-Arab_PK</option>
+	<option value="pa-IN">pa-IN</option>
+	<option value="pl">pl</option>
+	<option value="pl-PL">pl-PL</option>
+	<option value="prs">prs</option>
+	<option value="prs-AF">prs-AF</option>
+	<option value="ps">ps</option>
+	<option value="ps-AF">ps-AF</option>
+	<option value="pt">pt</option>
+	<option value="pt-BR">pt-BR</option>
+	<option value="pt-PT">pt-PT</option>
+	<option value="qps-ploc">qps-ploc</option>
+	<option value="qps-ploca">qps-ploca</option>
+	<option value="qps-plocm">qps-plocm</option>
+	<option value="qut">qut</option>
+	<option value="qut-GT">qut-GT</option>
+	<option value="quz">quz</option>
+	<option value="quz-BO">quz-BO</option>
+	<option value="quz-EC">quz-EC</option>
+	<option value="quz-PE">quz-PE</option>
+	<option value="rm">rm</option>
+	<option value="rm-CH">rm-CH</option>
+	<option value="ro">ro</option>
+	<option value="ro-MD">ro-MD</option>
+	<option value="ro-RO">ro-RO</option>
+	<option value="ru">ru</option>
+	<option value="ru-MD">ru-MD</option>
+	<option value="ru-RU">ru-RU</option>
+	<option value="ru-RU">ru-RU</option>
+	<option value="rw">rw</option>
+	<option value="rw-RW">rw-RW</option>
+	<option value="sa">sa</option>
+	<option value="sa-IN">sa-IN</option>
+	<option value="sah">sah</option>
+	<option value="sah-RU">sah-RU</option>
+	<option value="sd">sd</option>
+	<option value="sd-Arab">sd-Arab</option>
+	<option value="sd-Arab_PK">sd-Arab_PK</option>
+	<option value="se">se</option>
+	<option value="se-FI">se-FI</option>
+	<option value="se-NO">se-NO</option>
+	<option value="se-SE">se-SE</option>
+	<option value="si">si</option>
+	<option value="si-LK">si-LK</option>
+	<option value="sk">sk</option>
+	<option value="sk-SK">sk-SK</option>
+	<option value="sl">sl</option>
+	<option value="sl-SI">sl-SI</option>
+	<option value="sma">sma</option>
+	<option value="sma-NO">sma-NO</option>
+	<option value="sma-SE">sma-SE</option>
+	<option value="smj">smj</option>
+	<option value="smj-NO">smj-NO</option>
+	<option value="smj-SE">smj-SE</option>
+	<option value="smn">smn</option>
+	<option value="smn-FI">smn-FI</option>
+	<option value="sms">sms</option>
+	<option value="sms-FI">sms-FI</option>
+	<option value="so-SO">so-SO</option>
+	<option value="sq">sq</option>
+	<option value="sq-AL">sq-AL</option>
+	<option value="sr">sr</option>
+	<option value="sr-Cyrl">sr-Cyrl</option>
+	<option value="sr-Cyrl_BA">sr-Cyrl_BA</option>
+	<option value="sr-Cyrl_CS">sr-Cyrl_CS</option>
+	<option value="sr-Cyrl_ME">sr-Cyrl_ME</option>
+	<option value="sr-Cyrl_RS">sr-Cyrl_RS</option>
+	<option value="sr-Latn">sr-Latn</option>
+	<option value="sr-Latn_BA">sr-Latn_BA</option>
+	<option value="sr-Latn_CS">sr-Latn_CS</option>
+	<option value="sr-Latn_ME">sr-Latn_ME</option>
+	<option value="sr-Latn_RS">sr-Latn_RS</option>
+	<option value="st">st</option>
+	<option value="st-ZA">st-ZA</option>
+	<option value="sv">sv</option>
+	<option value="sv-FI">sv-FI</option>
+	<option value="sv-SE">sv-SE</option>
+	<option value="sw">sw</option>
+	<option value="sw-KE">sw-KE</option>
+	<option value="syr">syr</option>
+	<option value="syr-SY">syr-SY</option>
+	<option value="ta">ta</option>
+	<option value="ta-IN">ta-IN</option>
+	<option value="ta-LK">ta-LK</option>
+	<option value="te">te</option>
+	<option value="te-IN">te-IN</option>
+	<option value="tg">tg</option>
+	<option value="tg-Cyrl">tg-Cyrl</option>
+	<option value="tg-Cyrl_TJ">tg-Cyrl_TJ</option>
+	<option value="th">th</option>
+	<option value="th-TH">th-TH</option>
+	<option value="ti">ti</option>
+	<option value="ti-ER">ti-ER</option>
+	<option value="ti-ET">ti-ET</option>
+	<option value="tk">tk</option>
+	<option value="tk-TM">tk-TM</option>
+	<option value="tn">tn</option>
+	<option value="tn-BW">tn-BW</option>
+	<option value="tn-ZA">tn-ZA</option>
+	<option value="tr">tr</option>
+	<option value="tr-TR">tr-TR</option>
+	<option value="ts">ts</option>
+	<option value="ts-ZA">ts-ZA</option>
+	<option value="tt">tt</option>
+	<option value="tt-RU">tt-RU</option>
+	<option value="tzm">tzm</option>
+	<option value="tzm-Latn">tzm-Latn</option>
+	<option value="tzm-Latn_DZ">tzm-Latn_DZ</option>
+	<option value="tzm-Tfng">tzm-Tfng</option>
+	<option value="tzm-Tfng_MA">tzm-Tfng_MA</option>
+	<option value="ug">ug</option>
+	<option value="ug-CN">ug-CN</option>
+	<option value="uk">uk</option>
+	<option value="uk-UA">uk-UA</option>
+	<option value="uk-UA">uk-UA</option>
+	<option value="ur">ur</option>
+	<option value="ur-IN">ur-IN</option>
+	<option value="ur-PK">ur-PK</option>
+	<option value="uz">uz</option>
+	<option value="uz-Cyrl">uz-Cyrl</option>
+	<option value="uz-Cyrl_UZ">uz-Cyrl_UZ</option>
+	<option value="uz-Latn">uz-Latn</option>
+	<option value="uz-Latn_UZ">uz-Latn_UZ</option>
+	<option value="ve">ve</option>
+	<option value="ve-ZA">ve-ZA</option>
+	<option value="vi">vi</option>
+	<option value="vi-VN">vi-VN</option>
+	<option value="wo">wo</option>
+	<option value="wo-SN">wo-SN</option>
+	<option value="xh">xh</option>
+	<option value="xh-ZA">xh-ZA</option>
+	<option value="yo">yo</option>
+	<option value="yo-NG">yo-NG</option>
+	<option value="zh">zh</option>
+	<option value="zh-CN">zh-CN</option>
+	<option value="zh-HK">zh-HK</option>
+	<option value="zh-Hans">zh-Hans</option>
+	<option value="zh-Hant">zh-Hant</option>
+	<option value="zh-MO">zh-MO</option>
+	<option value="zh-SG">zh-SG</option>
+	<option value="zh-TW">zh-TW</option>
+	<option value="zu">zu</option>
+	<option value="zu-ZA">zu-ZA</option>
+</select>
+		</td><!-- td><em>Note: Not all languages are supported by the web host</em></td--></tr>
+	<tr><td colspan="2">&nbsp;</td></tr>
+	<tr><td><b>Formatted output:</b></td><td><pre id="out"></pre></td></tr>
+	<!--tr><td><b>Formatted Number:</b></td><td><pre id="num"></pre></td></tr>
+	<tr><td><b>Formatted Text</b></td><td><pre id="txt"></pre></td></tr -->
+</table>
+<!-- script src="ssf.js"></script -->
+<script>
+/*jshint browser:true */
+/*eslint-env browser */
+/*eslint no-use-before-define:0 */
+/*global SSF */
+var F = document.getElementById('fmt');
+var V = document.getElementById('val');
+var O = document.getElementById('out');
+var W = document.getElementById('width');
+var L = document.getElementById('locale');
+// var N = document.getElementById('num');
+// var T = document.getElementById('txt');
+
+function update() {
+	/* try {
+		N.innerHTML = SSF.format(F.value, Number(V.value));
+	} catch(e) { N.innerHTML = e; }
+	try {
+		T.innerHTML = SSF.format(F.value, V.value);
+	} catch(e) { T.innerHTML = e; } */
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+     /* O.innerHTML = this.responseText; */
+	    // alert(this.responseText);
+     // O.innerHTML = '|' + this.responseText.replace(/\n$/, "") + '|'
+	    // alert(this.responseText)
+     var response = (decodeURIComponent(this.responseText.replace(/\n/, ""))).replace(/\n$/, "")
+     // alert(response)
+     O.innerHTML = '|' + response + '|'
+    }
+  };
+  xhttp.open("GET", "evalssf.py?fmt="+encodeURIComponent(F.value)+"&val="+encodeURIComponent(V.value) +
+	  "&width="+encodeURIComponent(W.value)+"&locale="+encodeURIComponent(L.value), true);
+  xhttp.send();
+}
+
+/* Bind to relevant events */
+if(F.addEventListener) {
+	F.addEventListener('keyup', update);
+	V.addEventListener('keyup', update);
+	W.addEventListener('change', update);
+	L.addEventListener('change', update);
+} else if(F.attachEvent) {
+	F.attachEvent('onkeyup', update);
+	V.attachEvent('onkeyup', update);
+	W.attachEvent('onchange', update);
+	L.attachEvent('onchange', update);
+} else {
+	F.oninput = update;
+	V.oninput = update;
+	W.onchange = update;
+	L.onchange = update;
+}
+
+update();
+</script>
+</body>
+</html>

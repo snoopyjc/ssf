@@ -272,3 +272,19 @@ def test_issue_78():
             actual = ssf.format(fmt, int(spl[1]))
             expected = spl[i]
             assert actual == expected
+
+def test_issue_79():
+    assert ssf.format('#.#E-0', 3.14) == '3.1E0'
+    assert ssf.format('#.E-0', 3.14) == '3.E0'
+    assert ssf.format('#E-0', 3.14) == '3E0'
+    assert ssf.format('#E-0', 3) == '3E0'
+    assert ssf.format('000E-0', 10) == '010E0'
+    assert ssf.format('000E-0', 10.8) == '011E0'
+    assert ssf.format('##0E-0', 10.8) == '11E0'
+    assert ssf.format('##0E-0', 10) == '10E0'
+    assert ssf.format('##0.E-0', 10) == '10.E0'
+    assert ssf.format('##0.E-0', 10.8) == '11.E0'
+
+def test_issue_80():
+    assert ssf.format('0.000000000000000000000000000000000', 1.23456E-28) == '0.000000000000000000000000000123456'
+    assert ssf.format('#.0', 1E30) == '1000000000000000000000000000000.0'
