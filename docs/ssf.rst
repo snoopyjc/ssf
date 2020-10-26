@@ -12,14 +12,6 @@ ssf.ssf module
    :undoc-members:
    :show-inheritance:
 
-ssf.ssf\_calendar module
-------------------------
-
-.. automodule:: ssf.ssf_calendar
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 
 Module contents
 ---------------

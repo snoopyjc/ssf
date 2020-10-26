@@ -10,7 +10,7 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Babel', 'python-dateutil', 'pytz', 'PyYAML', 'six' ]
+requirements = ['Babel', 'python-dateutil', 'pytz', 'PyYAML', 'six', 'ummalqura', 'convertdate']
 
 setup_requirements = ['pytest-runner', ]
 
@@ -39,12 +39,12 @@ setup(
     name='ssf',
     packages=find_packages(include=['ssf', 'ssf.*']),
     package_data = {
-        '':['*.json', '*.tsv', '*.yaml']
+        '':['*.json', '*.tsv', '*.yaml', '*.bin']
         },
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/snoopyjc/ssf',
-    version='0.1.5',
+    version='0.2.0',
     zip_safe=False,
 )

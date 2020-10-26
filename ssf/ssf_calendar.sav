@@ -1,0 +1,189 @@
+import calendar
+from datetime import date
+from types import SimpleNamespace
+import gzip
+from dateutil.parser import parse as date_parse
+from convertdate import hebrew, islamic
+from lunarcalendar import Solar, Converter
+from ummalqura.hijri_date import HijriDate
+
+class SSF_CALENDAR:
+    """Handle alternative calendars for ssf.  This shouldn't be used directly."""
+    (SYSTEM_DEFAULT, GREGORIAN_LOCAL, GREGORIAN_US, JAPANESE, TAIWAN, KOREAN,       # 00-05
+    HIJRI, THAI_BUDDHIST, JEWISH, GREGORIAN_MIDDLE_EASTERN_FRENCH, GREGORIAN_ARABIC, # 06-0A
+    GREGORIAN_TRANSLITERATED_ENGLISH, GREGORIAN_TRANSLITERATED_FRENCH, x0D, # 0B-0D
+    LUNAR_x0E, x0F, x10, LUNAR_x11, LUNAR_x12,                              # 0E-12
+    CHINESE_LUNAR, x14, x15, x16, UM_AL_QURA, x18, x19, x1A, x1B, x1C, x1D, x1E, x1F) = range(0x20)
+
+    DEFAULT = GREGORIAN_LOCAL       # Each language gets interpreted properly in the default Gregorian Calendar
+    _has_leap_month = {0x08, 0x0E, 0x11, 0x12, 0x13}
+    _LEAP_MONTH_FLAG = 0x80     # Added to calendar number in day_month_map for years that have a leap month
+    day_month_map = {}          # calendar to {locale to [('Monday', 'Mon', 'January', 'Jan', 'J'), ('Tuesday', ...), ...]}
+
+    # Each converter takes a (named)tuple (year, month, day) and returns a SimpleNamespace(year, month, day, isleap)
+
+    @property
+    def has_leap_month(self):
+        """Could this calendar have a leap month?"""
+        return self.calendar_code in SSF_CALENDAR._has_leap_month
+
+    def to_default(self, ymd):        # No changes
+        return SimpleNamespace(year=ymd[0], month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]))
+
+    era_list = None
+
+    def to_japanese(self, ymd):       # Year changes to year in era
+        if SSF_CALENDAR.era_list is None:
+            era_file = os.path.join(os.path.dirname(__file__), 'eras.tsv')
+            if os.path.isfile(era_file):
+                with open(era_file, 'r', encoding='utf-8') as ef:
+                    eras = ef.read().splitlines()
+                ea = []
+                for e in eras[1:]:    # Skip heading
+                    loc, dt, g, gg, ggg = e.split('\t')
+                    if loc != 'ja-JP':
+                        continue
+                    ea.append(date_parse(dt).date())
+                SSF_CALENDAR.era_list = ea
+        dt = date(*ymd)
+        for e in SSF_CALENDAR.era_list:
+            if dt >= e:
+                return SimpleNamespace(year=(dt.year-e.year)+1, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]))
+        return self.to_default(ymd)
+
+    def to_taiwan(self, ymd):         # No changes
+        return self.to_default(ymd)
+
+    def to_korean(self, ymd):         # year changes (2020 -> 4353)
+        return SimpleNamespace(year=ymd[0] + 2333, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]))
+
+    def to_hijri(self, ymd):          # Everything changes e.g. Mon Jan January 1/6/2020 -> AlEthnien Jamada El Oula Jamada El Oula 5/11/1441
+        leap_year = islamic.leap()
+        year, month, day = islamic.from_gregorian(*ymd)
+        return SimpleNamespace(year=year, month=month, day=day, isleap=leap_year)
+
+    def to_thai_buddhist(self, ymd):  # Year changes along with day and month names e.g.  Mon Jan January 1/6/2020 -> จ. ม.ค. มกราคม 1/6/2563
+        return SimpleNamespace(year=ymd[0] + 543, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]))
+
+    ecclesiastical_to_civil = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 1: 7, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12}
+    ecclesiastical_leap_to_civil = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 13: 7, 1: 8, 2: 9, 3: 10, 4: 11, 5: 12, 6: 13}
+
+    def to_jewish(self, ymd):         # Everything changes e.g. Mon Jan January 1/6/2020 -> Yom Sheni Tishrei Tishrei 4/9/5780
+                                # Some years have a leap-month (13 months).  Conversion in convertdate module.
+                                # Months are named Tishrei, Cheshvan, Kislev, Tevet, Shevat, Adar, Nisan, Iyar, Sivan, Tammuz,
+                                # Av, Elul.  In years with a leap-month, "AdarI" is inserted before Adar, and Adar is renamed
+                                # as "AdarII".  Note: convertdate/hebrew uses the traditional month numbers, so
+                                # Nisan is 1.  5782 is a leap year.
+        leap_year = hebrew.leap()
+        year, month, day = hebrew.from_gregorian(*ymd)
+        if leap_year:
+            month = SSF_CALENDAR.ecclesiastical_leap_to_civil[month]
+        else:
+            month = SSF_CALENDAR.ecclesiastical_to_civil[month]
+        return SimpleNamespace(year=year, month=month, day=day, isleap=leap_year)
+
+    def to_lunar_x0e(self, ymd):      # Everything changes e.g. Mon Jan Jan 1/6/2020 -> 月 Dec December 12/12/2019
+                                # This year (2020) has a leap April with 29 days!  This means leap: 闰
+                                # Months are named like First Month, Second Month, etc.  The leap month has
+                                # the same name as the prior month with the "leap" char before it.
+                                # Month names: 正月, 二月, 三月, 四月, 五月, 六月, 七月, 八月, 九月, 十月, 十一月, 腊月
+        result = Converter.Solar2Lunar(Solar(*ymd))
+        #return SimpleNamespace(year=result.year, month=result.month, day=result.day, isleap=result.isleap)
+        return result       # Already has all of the proper fields!
+
+    def to_lunar_x11(self, ymd):      # Same as 0e except day name stays in English
+        return self.to_lunar_x0e(ymd)
+
+    def to_lunar_x12(self, ymd):      # Same as x11
+        return self.to_lunar_x0e(ymd)
+
+    def to_chinese_lunar(self, ymd):      # 0x13 - Same as x11
+        return self.to_lunar_x0e(ymd)
+
+    def to_um_al_qura(self, ymd):     # 0x17: See https://pypi.org/project/ummalqura/
+        result = HijriDate(*ymd, gr=True)
+        # Leap year corresponds to the Gregorian calendar and adds a 30th day to the 6th month
+        return SimpleNamespace(year=result.year, month=result.month, day=result.day, isleap=calendar.isleap(ymd[0]))
+
+    def month_names(self, locale_name, isleap=False):
+        """Return the month names for this calendar in the given ``locale_name``.  The result
+        is an array of month names, starting with January in index 0, or None if
+        we have no month names for this locale.  If isleap is True and this calendar
+        has a leap month, then the result contains 13 entries, else it has the normal 12."""
+        if isleap and self.has_leap_month:
+            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code+SSF_CALENDAR._LEAP_MONTH_FLAG]
+            last_month = 13
+        else:
+            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
+            last_month = 12
+        if locale_name not in day_month_map:
+            return None
+        months = []
+        dmm = day_month_map[locale_name]
+        for month in range(0, last_month):
+            months.append((dmm[month].mmmmm, dmm[month].mmm, dmm[month].mmmm))
+        return months
+
+    def day_names(self, locale_name):
+        """Return the day names for this calendar in the given ``locale_name``.  The result
+        is an array of day names, starting with Sunday in index 0, or None if
+        we have no day names for this locale"""
+        day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
+        if locale_name not in day_month_map:
+            return None
+        days = []
+        dmm = day_month_map[locale_name]
+        for day in (6, 0, 1, 2, 3, 4, 5):       # Start with SUN
+            days.append((dmm[day].ddd, dmm[day].dddd))
+        return days
+
+    def __init__(self, calendar=DEFAULT):
+        if calendar is None:
+            calendar = DEFAULT
+        self.calendar_code = calendar
+        _calendar_converter = [None, None, None, to_japanese, to_taiwan, to_korean,
+            to_hijri, to_thai_buddhist, to_jewish, None, None, None, None, None, to_lunar_x0e,
+            None, None, to_lunar_x11, to_lunar_x12, to_chinese_lunar, None, None, None, 
+            to_um_al_qura, None, None, None, None, None, None, None, None]
+        self.converter = self.to_default
+        try:
+            converter = _calendar_converter[calendar]
+            self.converter = converter or self.to_default
+        except (IndexError, TypeError):
+            if isinstance(calendar, int):
+                raise ValueError(f"Calendar {calendar:02X} is not valid!")
+            else:
+                raise ValueError(f"Calendar {calendar} must be an integer!")
+
+        def unescape(s):
+            """Excel save as tsv escaped all '"' chars - undo that!"""
+            if len(s) < 2:
+                return s
+            if s[0] == '"' and s[-1] == '"':
+                return s[1:-1].replace('""', '"')
+            return s
+
+        if calendar not in SSF_CALENDAR.day_month_map:      # We use a lazy algorithm to load the calendars as needed
+            for leap in (('', 0), ('_leap', SSF_CALENDAR._LEAP_MONTH_FLAG)):
+                if leap[0] and calendar not in SSF_CALENDAR._has_leap_month:
+                    continue
+                day_month_file = os.path.join(os.path.dirname(__file__), f'daymonth{calendar:02X}{leap[0]}.tsv.gz')
+                day_month_map = {}
+                if os.path.isfile(day_month_file):
+                    with gzip.open(day_month_file, 'rt', encoding='utf-8') as dmf:
+                        day_month = dmf.read().splitlines()
+                    month_number = []          # field index to month number
+                    for dm in day_month[1:]:    # Skip heading
+                        fields = dm.split('\t')
+                        dmm = {}
+                        for f, fd in enumerate(fields[2:]):       # Start with Mon/Jan
+                            dddd, ddd, mmmm, mmm, mmmmm, m = unescape(fd).split(',')
+                            if f >= len(month_number) and m.isdigit():  # Use first row to define the month number mapping
+                                month_number.append(int(m))
+                            dmm[month_number[f]] = SimpleNamespace(dddd=dddd, ddd=ddd, mmmm=mmmm, mmm=mmm, mmmmm=mmmmm)
+                        day_month_map[fields[1]] = dmm
+                    SSF_CALENDAR.day_month_map[calendar + leap[1]] = day_month_map
+
+    def to_local(self, ymd):
+        """Convert a tuple containing (year, month, day) to a SimpleNamespace containing (year, month, day, isleap)"""
+        return self.converter(ymd)

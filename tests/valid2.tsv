@@ -266,20 +266,20 @@ YYYY\-MM\-DD	1900-01-12	##########	1900-01-00	abcdef
 "[$-426]dddd\,\ yyyy"". gada ""d\.\ mmmm;@"	"ceturtdiena, 1900. gada 12. janvāris"	##########	"sestdiena, 1900. gada 0. janvāris"	abcdef
 "[$-427]yyyy\ ""m.""\ mmmm\ d\ ""d."";@"	1900 m. sausis 12 d.	##########	1900 m. sausis 0 d.	abcdef
 "[$-42B]dddd\,\ d\ mmmm\ yyyy;@"	"Հինգշաբթի, 12 Հունվար 1900"	##########	"Շաբաթ, 0 Հունվար 1900"	abcdef
-[$-42C]d\ mmmm\ yyyy;@	12 Yanvar 1900	##########	0 Yanvar 1900	abcdef
+[$-42C]d\ mmmm\ yyyy;@	12 yanvar 1900	##########	0 yanvar 1900	abcdef
 "[$-42D]yyyy""(e)ko""\ mmmm""ren""\ d""a"";@"	1900(e)ko urtarrilaren 12a	##########	1900(e)ko urtarrilaren 0a	abcdef
 "[$-42F]dddd\,\ dd\ mmmm\ yyyy;@"	"четврток, 12 јануари 1900"	##########	"сабота, 00 јануари 1900"	abcdef
 "[$-437]yyyy\ \წ\ლ\ი\ს\ dd\ mm\,\ dddd;@"	"1900 წლის 12 01, ხუთშაბათი"	##########	"1900 წლის 00 01, შაბათი"	abcdef
 [$-438]d\.\ mmmm\ yyyy;@	12. januar 1900	##########	0. januar 1900	abcdef
-"[$-43F]d\ mmmm\ yyyy\ ""ж."";@"	12 қаңтар 1900 ж.	##########	0 қаңтар 1900 ж.	abcdef
-[$-444]d\ mmmm\ yyyy;@	12 Гыйнвар 1900	##########	0 Гыйнвар 1900	abcdef
+"[$-43F]d\ mmmm\ yyyy\ ""ж."";@"	12 Қаңтар 1900 ж.	##########	0 Қаңтар 1900 ж.	abcdef
+[$-444]d\ mmmm\ yyyy;@	12 гыйнвар 1900	##########	0 гыйнвар 1900	abcdef
 [$-449]dd\ mmmm\ yyyy;@	12 ஜனவரி 1900	##########	00 ஜனவரி 1900	abcdef
 [$-44E]d\ mmmm\ yyyy;@	12 जानेवारी 1900	##########	0 जानेवारी 1900	abcdef
-[$-44F]dd\ mmmm\ yyyy\ dddd;@	12 जनवरी 1900 गुरुवासरः	##########	00 जनवरी 1900 शनिवासरः	abcdef
+[$-44F]dd\ mmmm\ yyyy\ dddd;@	12 जान्युअरी 1900 गुरुवासरः	##########	00 जान्युअरी 1900 शनिवासरः	abcdef
 [$-457]dd\ mmmm\ yyyy;@	12 जानेवारी 1900	##########	00 जानेवारी 1900	abcdef
 [$-813]dddd\ d\ mmmm\ yyyy;@	donderdag 12 januari 1900	##########	zaterdag 0 januari 1900	abcdef
 "[$-81A]dddd\,\ d\.\ mmmm\ yyyy;@"	"četvrtak, 12. januar 1900"	##########	"subota, 0. januar 1900"	abcdef
-[$-82C]d\ mmmm\ yyyy;@	12 Јанвар 1900	##########	0 Јанвар 1900	abcdef
+[$-82C]d\ mmmm\ yyyy;@	12 jанвар 1900	##########	0 jанвар 1900	abcdef
 "[$-843]yyyy\ ""й""""и""""л""\ d/mmmm;@"	1900 йил 12/Январ	##########	1900 йил 0/Январ	abcdef
 "[$-C07]dddd\,\ dd\.\ mmmm\ yyyy;@"	"Donnerstag, 12. Jänner 1900"	##########	"Samstag, 00. Jänner 1900"	abcdef
 "[$-FC19]yyyy\,\ dd\ mmmm;@"	"1900, 12 января"	##########	"1900, 00 января"	abcdef
@@ -288,8 +288,8 @@ YYYY\-MM\-DD	1900-01-12	##########	1900-01-00	abcdef
 "[GREEN]#,###"	12	-12		abcdef
 "[Green]#,###"	12	-12		abcdef
 [HH]	296	-296	00	abcdef
-[$-2060401]d/mm/yyyy\ h:mm\ AM/PM;@	١٢/٠١/١٩٠٠ ٨:١٧ ص	##########	٠/٠١/١٩٠٠ ١٢:٠٠ ص	abcdef
-[$-2060401]d\ mmmm\ yyyy;@	١٢ January ١٩٠٠	##########	٠ January ١٩٠٠	abcdef
+[$-2060401]d/mm/yyyy\ h:mm\ AM/PM;@	١٠/٠٩/١٣١٧ ٨:١٧ ص	##########	٠/٠١/١٩٠٠ ١٢:٠٠ ص	abcdef
+[$-2060401]d\ mmmm\ yyyy;@	١٠ رمضان ١٣١٧	##########	٠ محرم ١٩٠٠	abcdef
 [H]	296	-296	0	abcdef
 "[$-411]gggyy""年""m""月""d""日""\ dddd;@"	明治33年1月12日 木曜日	##########	明治33年1月0日 土曜日	abcdef
 [MAGENTA]0.00	12.35	-12.35	0.00	abcdef

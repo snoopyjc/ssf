@@ -1,0 +1,24 @@
+from datetime import date, timedelta
+from dateutil.parser import parse as date_parse
+
+leap_year = set()
+
+with open('lunarcal.txt', 'r') as lc:
+    lunar_cal = lc.read().splitlines()
+
+for line in lunar_cal[1:]:
+    fields = line.split('\t')
+    year, month, day = fields[1].split('-')
+    year = int(year)
+    month = int(month)
+    if month == 13:
+        leap_year.add(year)
+
+with open('lunarcal.tsv', 'w') as lc2:
+    #print('Lunar 0E\tisleap', file=lc2)
+    for line in lunar_cal[1:]:
+        fields = line.split('\t')
+        year, month, day = fields[1].split('-')
+        year = int(year)
+        isleap = 1 if year in leap_year else 0
+        print(f'{fields[1]}\t{isleap}', file=lc2)

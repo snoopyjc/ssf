@@ -16,6 +16,238 @@ import json
 import os
 import warnings
 from copy import copy
+import gzip
+from convertdate import hebrew, islamic
+#from lunarcalendar import Solar, Converter
+import mmap
+from ummalqura.hijri_date import HijriDate
+
+class SSF_CALENDAR:         # Issue #6
+    """Handle alternative calendars for ssf.  This shouldn't be used directly."""
+    (SYSTEM_DEFAULT, GREGORIAN_LOCAL, GREGORIAN_US, JAPANESE, TAIWAN, KOREAN,       # 00-05
+    HIJRI, THAI_BUDDHIST, JEWISH, GREGORIAN_MIDDLE_EASTERN_FRENCH, GREGORIAN_ARABIC, # 06-0A
+    GREGORIAN_TRANSLITERATED_ENGLISH, GREGORIAN_TRANSLITERATED_FRENCH, x0D, # 0B-0D
+    LUNAR_x0E, x0F, x10, LUNAR_x11, LUNAR_x12,                              # 0E-12
+    CHINESE_LUNAR, x14, x15, x16, UM_AL_QURA, x18, x19, x1A, x1B, x1C, x1D, x1E, x1F) = range(0x20)
+
+    _has_leap_month = {0x08, 0x0E, 0x11, 0x12, 0x13}
+    _LEAP_MONTH_FLAG = 0x80     # Added to calendar number in day_month_map for years that have a leap month
+    day_month_map = {}          # calendar to {locale to [('Monday', 'Mon', 'January', 'Jan', 'J'), ('Tuesday', ...), ...]}
+
+    # Each converter takes a (named)tuple (year, month, day) and returns a SimpleNamespace(year, month, day, isleap, era)
+
+    @property
+    def has_leap_month(self):
+        """Could this calendar have a leap month?"""
+        return self.calendar_code in SSF_CALENDAR._has_leap_month
+
+    def to_default(self, ymd):        # No changes
+        return SimpleNamespace(year=ymd[0], month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=None)
+
+    era_list = None
+
+    def to_japanese(self, ymd):       # Year changes to year in era
+        if SSF_CALENDAR.era_list is None:
+            era_file = os.path.join(os.path.dirname(__file__), 'eras.tsv')
+            if os.path.isfile(era_file):
+                with open(era_file, 'r', encoding='utf-8') as ef:
+                    eras = ef.read().splitlines()
+                ea = []
+                for e in eras[1:]:    # Skip heading
+                    loc, dt, g, gg, ggg = e.split('\t')
+                    if loc != 'ja-JP':
+                        continue
+                    ea.append(date_parse(dt).date())
+                SSF_CALENDAR.era_list = ea
+        dt = date(*ymd)
+        result = self.to_default(ymd)
+        for eno, e in enumerate(SSF_CALENDAR.era_list):
+            if dt >= e:
+                result = SimpleNamespace(year=(dt.year-e.year)+1, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=eno)
+            else:
+                return result
+        return result
+
+    def to_taiwan(self, ymd):         # No changes
+        return self.to_default(ymd)
+
+    def to_korean(self, ymd):         # year changes (2020 -> 4353)
+        return SimpleNamespace(year=ymd[0] + 2333, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=None)
+
+    def to_hijri(self, ymd):          # Everything changes e.g. Mon Jan January 1/6/2020 -> AlEthnien Jamada El Oula Jamada El Oula 5/11/1441
+        year, month, day = islamic.from_gregorian(*ymd)
+        leap_year = islamic.leap(year)
+        return SimpleNamespace(year=year, month=month, day=day, isleap=leap_year, era=None)
+
+    def to_thai_buddhist(self, ymd):  # Year changes along with day and month names e.g.  Mon Jan January 1/6/2020 -> จ. ม.ค. มกราคม 1/6/2563
+        return SimpleNamespace(year=ymd[0] + 543, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=None)
+
+    ecclesiastical_to_civil = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 1: 7, 2: 8, 3: 9, 4: 10, 5: 11, 6: 12}
+    ecclesiastical_leap_to_civil = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6, 13: 7, 1: 8, 2: 9, 3: 10, 4: 11, 5: 12, 6: 13}
+
+    def to_jewish(self, ymd):         # Everything changes e.g. Mon Jan January 1/6/2020 -> Yom Sheni Tishrei Tishrei 4/9/5780
+                                # Some years have a leap-month (13 months).  Conversion in convertdate module.
+                                # Months are named Tishrei, Cheshvan, Kislev, Tevet, Shevat, Adar, Nisan, Iyar, Sivan, Tammuz,
+                                # Av, Elul.  In years with a leap-month, "AdarI" is inserted before Adar, and Adar is renamed
+                                # as "AdarII".  Note: convertdate/hebrew uses the traditional month numbers, so
+                                # Nisan is 1.  5782 is a leap year.
+        year, month, day = hebrew.from_gregorian(*ymd)
+        leap_year = hebrew.leap(year)
+        if leap_year:
+            month = SSF_CALENDAR.ecclesiastical_leap_to_civil[month]
+        else:
+            month = SSF_CALENDAR.ecclesiastical_to_civil[month]
+        return SimpleNamespace(year=year, month=month, day=day, isleap=leap_year, era=None)
+
+    lunar_bin = None
+
+    def to_lunar_x0e(self, ymd):      # Everything changes e.g. Mon Jan Jan 1/6/2020 -> 月 Dec December 12/12/2019
+                                      # This year (2020) has a leap April with 29 days!  This means leap: 闰
+                                      # Months are named like First Month, Second Month, etc.  The leap month has
+                                      # the same name as the prior month with the "leap" char before it.
+                                      # Month names: 正月, 二月, 三月, 四月, 五月, 六月, 七月, 八月, 九月, 十月, 十一月, 腊月
+        # We use our own converter to match what Excel does (which is probably wrong but we match it anyway)
+        # lunarcal.bin is a binary file containing 3 bytes per date since the epoch (1/1/1900)
+        # This 24-bit value is encoded as follows:
+        #
+        # 0             14      18    23       24
+        # | offset_year | month | day | isleap |
+        # |<  14 bits  >|< 4b  >|< 5b>|< 1 bit>|
+        #
+        # Where offset_year is year-1899
+
+        if SSF_CALENDAR.lunar_bin is None:      # Runs exactly once
+            lunarcal_file = os.path.join(os.path.dirname(__file__), 'lunarcal.bin')
+            if os.path.isfile(lunarcal_file):
+                lunar_fd = open(lunarcal_file, 'rb')    # No, we never close it
+                SSF_CALENDAR.lunar_bin = mmap.mmap(lunar_fd.fileno(), 0, access=mmap.ACCESS_READ)
+        if ymd[0] == 1900:      # Handle a couple of 'special' dates which are not real dates
+            if ymd[1] == 1 and ymd[2] == 0:
+                ymd = (1900, 1, 1)
+            elif ymd[1] == 2 and ymd[2] == 29:
+                ymd = (1900, 3, 1)
+        base = date(1900, 1, 1)
+        delta = (date(*ymd) - base).days
+        ndx = delta * 3
+        try:
+            value = int.from_bytes(SSF_CALENDAR.lunar_bin[ndx:ndx+3], byteorder='big')
+        except Exception:
+            value = 0
+        result = SimpleNamespace(year=(value>>10)+1899, month=(value>>6)&0xF, 
+                                 day=(value>>1)&0x1F, isleap=value&1, era=None)
+        #result = Converter.Solar2Lunar(Solar(*ymd))
+        #result.era = None
+        #return SimpleNamespace(year=result.year, month=result.month, day=result.day, isleap=result.isleap)
+        return result       # Already has all of the proper fields!
+
+    def to_lunar_x11(self, ymd):      # Same as 0e except day name stays in English
+        return self.to_lunar_x0e(ymd)
+
+    def to_lunar_x12(self, ymd):      # Same as x11
+        return self.to_lunar_x0e(ymd)
+
+    def to_chinese_lunar(self, ymd):      # 0x13 - Same as x11
+        return self.to_lunar_x0e(ymd)
+
+    def to_um_al_qura(self, ymd):     # 0x17: See https://pypi.org/project/ummalqura/
+        result = HijriDate(*ymd, gr=True)
+        # Leap year corresponds to the Gregorian calendar and adds a 30th day to the 6th month
+        return SimpleNamespace(year=result.year, month=result.month, day=result.day, isleap=calendar.isleap(ymd[0]), era=None)
+
+    def month_names(self, locale_name, isleap=False):
+        """Return the month names for this calendar in the given ``locale_name``.  The result
+        is an array of month names, starting with January in index 0, or None if
+        we have no month names for this locale.  If isleap is True and this calendar
+        has a leap month, then the result contains 13 entries, else it has the normal 12."""
+        if isleap and self.has_leap_month:
+            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code+SSF_CALENDAR._LEAP_MONTH_FLAG]
+            last_month = 13
+        else:
+            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
+            last_month = 12
+        if locale_name not in day_month_map:
+            return None
+        months = []
+        dmm = day_month_map[locale_name]
+        for month in range(0, last_month):
+            months.append((dmm[month].mmmmm, dmm[month].mmm, dmm[month].mmmm))
+        return months
+
+    def day_names(self, locale_name):
+        """Return the day names for this calendar in the given ``locale_name``.  The result
+        is an array of day names, starting with Sunday in index 0, or None if
+        we have no day names for this locale"""
+        day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
+        if locale_name not in day_month_map:
+            return None
+        days = []
+        dmm = day_month_map[locale_name]
+        for day in (6, 0, 1, 2, 3, 4, 5):       # Start with SUN
+            days.append((dmm[day].ddd, dmm[day].dddd))
+        return days
+
+    def __init__(self, calendar=SYSTEM_DEFAULT):
+        if calendar is None:
+            calendar = SSF_CALENDAR.SYSTEM_DEFAULT  # 00
+        self.calendar_code = calendar
+        _calendar_converter = [None, None, None, self.to_japanese, self.to_taiwan, self.to_korean,
+            self.to_hijri, self.to_thai_buddhist, self.to_jewish, None, None, None, None, None, self.to_lunar_x0e,
+            None, None, self.to_lunar_x11, self.to_lunar_x12, self.to_chinese_lunar, None, None, None, 
+            self.to_um_al_qura, None, None, None, None, None, None, None, None]
+        self.converter = self.to_default
+        try:
+            converter = _calendar_converter[calendar]
+            self.converter = converter or self.to_default
+        except (IndexError, TypeError):
+            if isinstance(calendar, int):
+                raise ValueError(f"Calendar {calendar:02X} is not valid!")
+            else:
+                raise ValueError(f"Calendar {calendar} must be an integer!")
+
+        def unescape(s):
+            """Excel save as tsv escaped all '"' chars - undo that!"""
+            if len(s) < 2:
+                return s
+            if s[0] == '"' and s[-1] == '"':
+                return s[1:-1].replace('""', '"')
+            return s
+
+        if calendar not in SSF_CALENDAR.day_month_map:      # We use a lazy algorithm to load the calendars as needed
+            for leap in (('', 0), ('_leap', SSF_CALENDAR._LEAP_MONTH_FLAG)):
+                if leap[0] and calendar not in SSF_CALENDAR._has_leap_month:
+                    continue
+                day_month_file = os.path.join(os.path.dirname(__file__), f'daymonth{calendar:02X}{leap[0]}.tsv.gz')
+                day_month_map = {}
+                if os.path.isfile(day_month_file):
+                    with gzip.open(day_month_file, 'rt', encoding='utf-8') as dmf:
+                        day_month = dmf.read().splitlines()
+                    month_number = []          # field index to month number
+                    for dm in day_month[1:]:    # Skip heading
+                        fields = dm.split('\t')
+                        if fields[1][0] == '*':
+                            continue        # Skip the local time/date rows
+                        dmm = {}
+                        for f, fd in enumerate(fields[2:]):       # Start with Mon/Jan
+                            dddd, ddd, mmmm, mmm, mmmmm, m = unescape(fd).split(',')
+                            if f >= len(month_number) and m.isdigit():  # Use first row to define the month number mapping
+                                month_number.append(int(m))
+                            if month_number[f]-1 not in dmm:
+                                dmm[month_number[f]-1] = SimpleNamespace(dddd=dddd, ddd=ddd, mmmm=mmmm, mmm=mmm, mmmmm=mmmmm)
+                        # If we start with anything but January, then we need to move the days to the proper place
+                        if month_number[0] != 1:
+                            dmt = {}
+                            for i in range(7):
+                                dmt[i] = SimpleNamespace(dddd=dmm[month_number[i]-1].dddd,
+                                                         ddd=dmm[month_number[i]-1].ddd)
+                            for i in range(7):
+                                dmm[i].dddd = dmt[i].dddd
+                                dmm[i].ddd = dmt[i].ddd
+                        day_month_map[fields[1]] = dmm
+                    SSF_CALENDAR.day_month_map[calendar + leap[1]] = day_month_map
+
+    def to_local(self, ymd):
+        """Convert a tuple containing (year, month, day) to a SimpleNamespace containing (year, month, day, isleap, era)"""
+        return self.converter(ymd)
 
 class SSF_LOCALE:
     """Handle locale support for SSF.  This shouldn't be used directly."""
@@ -23,15 +255,16 @@ class SSF_LOCALE:
     dbnum_map = None            # "DBNum,locale" to [str of digits (0-9), 10, 100, 1000, etc]
     numbers_map = None          # xx to [str of digits (0-9), 10, 100, 1000, etc]
     am_pm_map = None            # locale to ('AM', 'PM')
-    day_month_map = None        # locale to [('Monday', 'Mon', 'January', 'Jan', 'J'), ('Tuesday', ...), ...]
+    # day_month_map = None        # locale to [('Monday', 'Mon', 'January', 'Jan', 'J'), ('Tuesday', ...), ...]
     era_map = None              # locale to [SimpleNamespace(dt, g, gg, ggg), ...]
     table_map = None            # locale to dict(N=formatN, M=formatM, ...)
     currency_map = None         # country code to currency
     lcid_reverse_map = None
     lcid_max = 0
     MAX_AMPM=6      # Max chars in "Morning" or "Afternoon", else we use "AM/PM"
+    GANNEN='元'                 # Issue #9
 
-    def __init__(self, locale=None, locale_support=True, locale_currency=True, decimal_separator=None, thousands_separator=None):
+    def __init__(self, locale=None, locale_support=True, locale_currency=True, decimal_separator=None, thousands_separator=None, calendar_code=None):
         decimal.setcontext(decimal.Context(rounding=decimal.ROUND_HALF_UP))
         self.currency_symbol='$'
         self.mon_decimal_point=decimal_separator or '.'
@@ -67,12 +300,14 @@ class SSF_LOCALE:
         self.pm = 'PM'
         self.a = 'A'
         self.p = 'P'
+        self.gannen = 1     # Issue #9
         self.days = []
         for day in (6, 0, 1, 2, 3, 4, 5):       # Start with SUN
             self.days.append([calendar.day_abbr[day], calendar.day_name[day]])
         self.months = []
         for month in range(1, 12+1):
             self.months.append([calendar.month_abbr[month][0], calendar.month_abbr[month], calendar.month_name[month]])
+        self.months_leap = self.months
         if locale_support:
             if SSF_LOCALE.currency_map is None:
                 currency_file = os.path.join(os.path.dirname(__file__), 'currencies.json')
@@ -98,25 +333,31 @@ class SSF_LOCALE:
                 if os.path.isfile(era_file):
                     with open(era_file, 'r', encoding='utf-8') as ef:
                         eras = ef.read().splitlines()
+                    ploc = None
                     ea = []
                     for e in eras[1:]:    # Skip heading
                         loc, dt, g, gg, ggg = e.split('\t')
+                        if ploc and loc != ploc:
+                            SSF_LOCALE.era_map[ploc] = ea
+                            ea = []
                         ea.append(SimpleNamespace(dt=date_parse(dt).date(), g=g, gg=gg, ggg=ggg))
-                    SSF_LOCALE.era_map[loc] = ea
+                        ploc = loc
+                    SSF_LOCALE.era_map[ploc] = ea
 
-            if SSF_LOCALE.day_month_map is None:
-                day_month_file = os.path.join(os.path.dirname(__file__), 'daymonth.tsv')
-                SSF_LOCALE.day_month_map = {}
-                if os.path.isfile(day_month_file):
-                    with open(day_month_file, 'r', encoding='utf-8') as dmf:
-                        day_month = dmf.read().splitlines()
-                    for dm in day_month[1:]:    # Skip heading
-                        fields = dm.split('\t')
-                        dmm = []
-                        for fd in fields[2:]:       # Start with Mon/Jan
-                            dddd, ddd, mmmm, mmm, mmmmm = fd.split(',')
-                            dmm.append(SimpleNamespace(dddd=dddd, ddd=ddd, mmmm=mmmm, mmm=mmm, mmmmm=mmmmm))
-                        SSF_LOCALE.day_month_map[fields[1]] = dmm
+            # Handled by SSF_CALENDAR now
+            #if SSF_LOCALE.day_month_map is None:
+                #day_month_file = os.path.join(os.path.dirname(__file__), 'daymonth.tsv')
+                #SSF_LOCALE.day_month_map = {}
+                #if os.path.isfile(day_month_file):
+                    #with open(day_month_file, 'r', encoding='utf-8') as dmf:
+                        #day_month = dmf.read().splitlines()
+                    #for dm in day_month[1:]:    # Skip heading
+                        #fields = dm.split('\t')
+                        #dmm = []
+                        #for fd in fields[2:]:       # Start with Mon/Jan
+                            #dddd, ddd, mmmm, mmm, mmmmm = fd.split(',')
+                            #dmm.append(SimpleNamespace(dddd=dddd, ddd=ddd, mmmm=mmmm, mmm=mmm, mmmmm=mmmmm))
+                        #SSF_LOCALE.day_month_map[fields[1]] = dmm
 
             if SSF_LOCALE.am_pm_map is None:
                 am_pm_file = os.path.join(os.path.dirname(__file__), 'ampm.tsv')
@@ -168,6 +409,9 @@ class SSF_LOCALE:
                         SSF_LOCALE.lcid_reverse_map[l_t_s] = i_id
                         SSF_LOCALE.lcid_max = max(SSF_LOCALE.lcid_max, i_id)
 
+            if isinstance(locale, str) and locale.lower().endswith('-x-gannen'):     # Issue #9
+                locale = locale[:-9]
+                self.gannen = SSF_LOCALE.GANNEN
             locale = self.normalize_locale(locale) or def_locale
             if self.lcid_map and locale in self.lcid_map:
                 locale = self.lcid_map[locale]
@@ -211,14 +455,24 @@ class SSF_LOCALE:
                 self.a = locale.day_periods['format']['narrow'].get('am', 'A')
                 self.p = locale.day_periods['format']['narrow'].get('pm', 'P')
 
-            if SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
-                self.days = []
-                self.months = []
-                dmm = SSF_LOCALE.day_month_map[self.locale_name]
-                for day in (6, 0, 1, 2, 3, 4, 5):       # Start with SUN
-                    self.days.append((dmm[day].ddd, dmm[day].dddd))
-                for month in range(0, 12):
-                    self.months.append((dmm[month].mmmmm, dmm[month].mmm, dmm[month].mmmm))
+            self.calendar_code = calendar_code
+            self.calendar = SSF_CALENDAR(calendar_code)
+            self.b2_calendar = SSF_CALENDAR(SSF_CALENDAR.HIJRI)
+
+            #if SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
+                #self.days = []
+                #self.months = []
+                #dmm = SSF_LOCALE.day_month_map[self.locale_name]
+                #for day in (6, 0, 1, 2, 3, 4, 5):       # Start with SUN
+                    #self.days.append((dmm[day].ddd, dmm[day].dddd))
+                #for month in range(0, 12):
+                    #self.months.append((dmm[month].mmmmm, dmm[month].mmm, dmm[month].mmmm))
+            self.days = self.calendar.day_names(self.locale_name)
+            self.months = self.calendar.month_names(self.locale_name)
+            self.months_leap = self.calendar.month_names(self.locale_name, isleap=True)
+            from_map = False
+            if self.days and self.months:
+                from_map = True        # We got it covered
             elif locale:
                 self.days = []
                 self.months = []
@@ -229,6 +483,7 @@ class SSF_LOCALE:
                     self.months.append((locale.months['format']['narrow'][month],
                                         locale.months['format']['abbreviated'][month],
                                         locale.months['format']['wide'][month]))
+                self.months_leap = self.months
             if locale:
                 self.decimal_point = decimal_separator or locale.number_symbols['decimal']
                 self.thousands_sep = thousands_separator or locale.number_symbols['group']
@@ -246,7 +501,8 @@ class SSF_LOCALE:
                         replace('M', 'm')
                 self.long_date_format = re.sub(r'\bd\b', 'dd', self.long_date_format)
                 self.long_date_format = re.sub(r'\by\b', 'yyyy', self.long_date_format)
-            elif SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
+            #elif SSF_LOCALE.day_month_map and self.locale_name in SSF_LOCALE.day_month_map:
+            elif from_map:
                 if decimal_separator is not None:
                     self.decimal_point = decimal_separator
                 if thousands_separator is not None:
@@ -474,6 +730,9 @@ class SSF:
     @staticmethod
     def round(number, places=0):
         """JavaScript style: Round 0.5 always up - not to even like python 3"""
+        if isinstance(number, int):     # Issue #7
+            if places >= 0:
+                return number
         place = 10**places
         rounded = (int(number*place + (0.5 if number>=0 else -0.5)))/place
         if rounded == int(rounded):
@@ -537,7 +796,11 @@ class SSF:
     #function pad0r1(v,d){var t=""+Math.round(v); return t.length>=d?t:fill('0',d-t.length)+t;}
     @staticmethod
     def _pad0r1(v,d):
-        t=str(SSF.round(v))
+        # Issue #7 t=str(SSF.round(v))
+        if isinstance(v, float) and abs(v) > 1e22:  # Issue #7
+            t=SSF.to_str(v)  # Issue #7
+        else:
+            t=SSF.to_str(SSF.round(v))  # Issue #7
         return t if len(t)>=d else SSF._fill('0',d-len(t))+t
 
     #function pad0r2(v,d){var t=""+v; return t.length>=d?t:fill('0',d-t.length)+t;}
@@ -744,8 +1007,7 @@ class SSF:
         q = math.floor(sgn * P/Q)
         return [q, sgn*P - q*Q, Q]
 
-    @staticmethod
-    def _parse_date_code(v,opts,b2=None, abstime=False):
+    def _parse_date_code(self,v,opts,b2=None, abstime=False):
         if v > 2958465 or (v < 0 and not abstime):      # https://github.com/SheetJS/ssf/issues/71
             return None
         dt = int(v)
@@ -753,7 +1015,8 @@ class SSF:
         time = int(86400 * (v - dt))        # issues/71
         dow=0
         dout=[]
-        out=SimpleNamespace(D=dt, T=time, u=86400*(v-dt)-time,y=0,m=0,d=0,H=0,M=0,S=0,q=0)
+        #out=SimpleNamespace(D=dt, T=time, u=86400*(v-dt)-time,y=0,m=0,d=0,H=0,M=0,S=0,q=0)
+        out=SimpleNamespace(D=dt, T=time, u=86400*(v-dt)-time,y=0,m=0,d=0,H=0,M=0,S=0,q=0,L=False,e=None)
         if abs(out.u) < 1e-6:
             out.u = 0           # Truncate microseconds due to float rounding
         if opts and opts.date1904:
@@ -798,8 +1061,9 @@ class SSF:
             dow = (d.weekday()+1) % 7   # SUN=0, SAT=6
             if dt < 60:
                 dow = (dow + 6) % 7     # Fixup day of week for the year 1900 bug, described above
-            if b2:
-                dow = SSF._fix_hijri(dt, d, dout)
+            #if b2:
+                #dow = SSF._fix_hijri(dt, d, dout)
+            out.L, out.e = self._fix_calendar(dout, b2)
         
         out.y = dout[0]
         out.m = dout[1]
@@ -1041,16 +1305,30 @@ class SSF:
 
     _general = _general_fmt
 
-    @staticmethod
-    def _fix_hijri(dn, d, o):        # https://github.com/SheetJS/ssf/issues/58
-      #/* TODO: properly adjust y/m/d and */
-      o[0] -= 581;
+    def _fix_calendar(self, o, b2):
+        if self.fmt_calendar_code:
+            sns = self.tmpl.calendar.to_local(o)
+            o[0] = sns.year
+            o[1] = sns.month
+            o[2] = sns.day
+            return (sns.isleap, sns.era)
+        elif b2:
+            sns = self.tmpl.b2_calendar.to_local(o)
+            o[0] = sns.year
+            o[1] = sns.month
+            o[2] = sns.day
+            return (sns.isleap, sns.era)
+        return (False, None)                # Not year with leap-month and no era number
+      
+    #@staticmethod
+    #def _fix_hijri(dt,d, o):
+      #o[0] -= 581;
       #var dow = date.getDay();
-      dow = (d.weekday()+1) % 7   # SUN=0, SAT=6
+      #dow = (d.weekday()+1) % 7   # SUN=0, SAT=6
       # if d < 60:
-      if dn < 60:           # https://github.com/SheetJS/ssf/issues/58
-          dow = (dow + 6) % 7
-      return dow
+      #if dn < 60:           # https://github.com/SheetJS/ssf/issues/58
+          #dow = (dow + 6) % 7
+      #return dow
     
     #var THAI_DIGITS = "\u0E50\u0E51\u0E52\u0E53\u0E54\u0E55\u0E56\u0E57\u0E58\u0E59".split("");
     #/*jshint -W086 */
@@ -1062,15 +1340,28 @@ class SSF:
         outl = 0
         out = 0
 
-        def era_data(dt):
+        def era_data(dt, era_no=None):
             """Get the era data (e, g, gg, ggg) for a the era given by the given date.  Return year if not found"""
-            era = SSF_LOCALE.era_map.get(self.tmpl.locale_name) if SSF_LOCALE.era_map else None
+            locale_name = self.tmpl.locale_name if era_no is None else 'ja-JP'
+            era = SSF_LOCALE.era_map.get(locale_name) if SSF_LOCALE.era_map else None
+            result = (dt.year, '', '', '')        # Issue #1
             if not era:
-                return (dt.year, '', '', '')        # Issue #1
+                return result
+            if era_no is not None:
+                e = era[era_no]
+                result = (dt.year, e.g, e.gg, e.ggg)
+                if result[0] == 1:
+                    result (self.tmpl.gannen, e.g, e.gg, e.ggg)
+                return result
+
             for e in era:
-                if dt > e.dt:
-                    return ((dt.year - e.dt.year)+1, e.g, e.gg, e.ggg)
-            return (dt.year, '', '', '')            # Issue #1
+                if dt >= e.dt:
+                    result = ((dt.year - e.dt.year)+1, e.g, e.gg, e.ggg)    # Issue #9
+                    if result[0] == 1:      # Issue #9: Gannen year
+                        result = (self.tmpl.gannen, e.g, e.gg, e.ggg)
+                else:
+                    return result
+            return result
 
         #switch(type) {
         #case 98: /* 'b' buddhist year */
@@ -1090,8 +1381,10 @@ class SSF:
             else:
                 out = y % 10000
                 outl = 4
+            if val.e is not None:       # Era dates - suppress leading zeros
+                outl = len(str(out))
         elif type == 103:      # 'g': Emperor reign year (https://taiken.co/single/understanding-the-years-based-on-japanese-eras/)
-            _, *g = era_data(date(y, val.m, max(val.d, 1)))     # 'max' is to handle the potential 1/0/1900
+            _, *g = era_data(date(y, val.m, max(val.d, 1)), val.e)     # 'max' is to handle the potential 1/0/1900
             lg = min(len(fmt), 3)
             return g[lg-1]
         #case 109: /* 'm' month */
@@ -1106,11 +1399,11 @@ class SSF:
                 out = val.m
                 outl = len(fmt)
             elif len(fmt) == 3:
-                return self.tmpl.months[val.m-1][1]
+                return (self.tmpl.months_leap[val.m-1] if val.L else self.tmpl.months[val.m-1])[1]
             elif len(fmt) == 5:
-                return self.tmpl.months[val.m-1][0]
+                return (self.tmpl.months_leap[val.m-1] if val.L else self.tmpl.months[val.m-1])[0]
             else:
-                return self.tmpl.months[val.m-1][2]
+                return (self.tmpl.months_leap[val.m-1] if val.L else self.tmpl.months[val.m-1])[2]
         #case 100: /* 'd' day */
         elif type == 100:
                 #switch(fmt.length) {
@@ -1211,7 +1504,7 @@ class SSF:
                 #out = y; outl = 1; break;
             #out = y
             #outl = 1
-            e, *_ = era_data(date(y, val.m, max(val.d, 1)))     # The 'max' is because the date could be 1/0/1900
+            e, *_ = era_data(date(y, val.m, max(val.d, 1)), val.e)     # The 'max' is because the date could be 1/0/1900
             out = e
             outl = len(fmt)
         #var outstr = outl > 0 ? pad0(out, outl) : "";
@@ -2309,7 +2602,7 @@ class SSF:
             elif c in ('B', 'b'):
                 if fmt[i+1:i+2] in ("1", "2"):
                     if dt is None: 
-                        dt=SSF._parse_date_code(v, opts, fmt[i+1:i+2] == "2")
+                        dt=self._parse_date_code(v, opts, fmt[i+1:i+2] == "2")
                         if dt is None:
                             #return ""
                             return SSF._pounds(wid)
@@ -2328,7 +2621,7 @@ class SSF:
                     #return ""
                     return SSF._pounds(wid)
                 if dt is None:
-                    dt=SSF._parse_date_code(v, opts) 
+                    dt=self._parse_date_code(v, opts) 
                     if dt is None:
                         #return ""
                         return SSF._pounds(wid)
@@ -2353,7 +2646,7 @@ class SSF:
             elif c in ('A', 'a', '上'): 
                 q=SimpleNamespace(t=c, v=c)
                 if dt is None:
-                    dt=SSF._parse_date_code(v, opts)
+                    dt=self._parse_date_code(v, opts)
                 # The rule regarding `A/P` and `AM/PM` is that if they show up
                 # in the format then _all_ instances of `h` are considered 12-hour and not 24-hour
                 # format (even in cases like `hh AM/PM hh hh hh`)
@@ -2401,7 +2694,7 @@ class SSF:
                 i = j+1
                 if re.match(SSF._abstime, o):
                     if dt is None: 
-                        dt=SSF._parse_date_code(v, opts, abstime=True)
+                        dt=self._parse_date_code(v, opts, abstime=True)
                         abstime = True
                         if dt is None:
                             #return ""
@@ -2411,12 +2704,12 @@ class SSF:
                         lst = o[1]
                 elif o.find("$") > -1:
                     if self.locale_support:
-                        m = re.match(r'\[\$([^-]*)\-(?:([0-9A-Fa-f]+)|([A-Za-z][A-Za-z0-9_-]+))\]', o)      # [$USD-409] optional currency string-locale
+                        m = re.match(r'\[\$([^-]*)\-(?:([0-9A-Fa-f]+)|((?:[A-Za-z][A-Za-z0-9_-]+(?:,[0-9A-Fa-f]+)?)|(?:,[0-9A-Fa-f]+)))\]', o)      # [$USD-409] optional currency string-locale
                         if m:
                             if m.group(2):
                                 xxyyzzzz = int(m.group(2), 16)  # https://stackoverflow.com/questions/54134729/what-does-the-130000-in-excel-locale-code-130000-mean
                                 xx = (xxyyzzzz >> 24) & 0x7f
-                                self.fmt_calendar_code = (xxyyzzzz >> 16) & 0x7f     # FIXME: Not currently used
+                                self.fmt_calendar_code = (xxyyzzzz >> 16) & 0x7f
                                 locale_id = xxyyzzzz & 0xffff
                                 if SSF_LOCALE.lcid_map and locale_id in SSF_LOCALE.lcid_map:
                                     lcid = SSF_LOCALE.lcid_map[locale_id]
@@ -2430,14 +2723,23 @@ class SSF:
                                         # the thousands_sep:
                                         self.tmpl = self._get_locale(locale_id, 
                                             decimal_separator=self.fmtl.decimal_point, 
-                                            thousands_separator=self.fmtl.thousands_sep)
+                                            thousands_separator=self.fmtl.thousands_sep,
+                                            calendar_code=self.fmt_calendar_code)
                                 else:
                                     self._value_error(f"Cannot handle locale {locale_id:X} in {o}")
                             else:   # [$-en-US]
-                                self.tmpl = self._get_locale(m.group(3),
-                                            decimal_separator=self.fmtl.decimal_point, 
-                                            thousands_separator=self.fmtl.thousands_sep)
+                                locale_split = m.group(3).split(',', 1)         # Issue #8
                                 xx = None
+                                self.fmt_calendar_code = 0
+                                if len(locale_split) == 2:                      # Issue #8
+                                    xxyy = int(locale_split[-1], 16)
+                                    xx = (xxyy >> 8) & 0x7f
+                                    self.fmt_calendar_code = xxyy & 0x7f
+                                if locale_split[0]:                             # Issue #8
+                                    self.tmpl = self._get_locale(locale_split[0],
+                                            decimal_separator=self.fmtl.decimal_point, 
+                                            thousands_separator=self.fmtl.thousands_sep,
+                                            calendar_code=self.fmt_calendar_code)
 
                             if self.fmtl.dbnum or xx:
                                 self.tmpl = copy(self.tmpl)
@@ -2659,7 +2961,7 @@ class SSF:
             dt.u = SSF.round(dt.u, ss0)
             if dt.u >= 1 or dt.u <= -1:  
                 v = (((dt.D*24+dt.H)*60+dt.M)*60+dt.S+dt.u) / 86400.0
-                dt=SSF._parse_date_code(v, opts, b2, abstime)
+                dt=self._parse_date_code(v, opts, b2, abstime)
                 if dt is None:
                     return SSF._pounds(wid)
 
@@ -2688,7 +2990,10 @@ class SSF:
             #case 'd': case 'm': case 'y': case 'h': case 'H': case 'M': case 's': case 'e': case 'b': case 'Z':
             elif t in ('d', 'm', 'y', 'h', 'H', 'M', 's', 'e', 'b', 'Z', 'g'):
                 is_number = True
-                out[i].v = self._replace_numbers(self._write_date(ord(t), out[i].v, dt, ss0), is_date=True if t != 'y' or len(out[i].v) != 4 else False)
+                value = self._write_date(ord(t), out[i].v, dt, ss0)
+                if t == 'y' or len(out[i].v) < 3:   # Don't replace numbers in mmm, mmmm, ddd, dddd
+                    value = self._replace_numbers(value, is_date=True if t != 'y' or len(out[i].v) != 4 else False)
+                out[i].v = value
                 num_written = True
                 out[i].t = 't'
                 i += 1
@@ -3129,7 +3434,8 @@ class SSF:
             self.table_fmt[key] = SSF_LOCALE.table_map[locale_name][key]
 
 
-    def _get_locale(self, locale, decimal_separator=None, thousands_separator=None, update_table=False):
+    def _get_locale(self, locale, decimal_separator=None, thousands_separator=None, update_table=False, calendar_code=None):
+        #print(f'_get_locale({locale}, "{decimal_separator}", "{thousands_separator}", {update_table}, {calendar_code})')
         if not self.locale_support:
             return self.curl
 
@@ -3148,11 +3454,12 @@ class SSF:
             thousands_separator = self.curl.thousands_sep
         s_l += decimal_separator if decimal_separator else ''
         s_l += thousands_separator if thousands_separator else ''
+        s_l += str(calendar_code) if calendar_code is not None else ''
         if s_l in self._locale_cache:
             return self._locale_cache[s_l]
 
         try:
-            result = SSF_LOCALE(locale=locale, decimal_separator=decimal_separator, thousands_separator=thousands_separator)
+            result = SSF_LOCALE(locale=locale, decimal_separator=decimal_separator, thousands_separator=thousands_separator, calendar_code=calendar_code)
         except Exception as e:
             self._value_error(e)
             result = SSF_LOCALE(locale_support=self.locale_support, locale=None, decimal_separator=decimal_separator, thousands_separator=thousands_separator)
@@ -3686,6 +3993,3 @@ class SSF:
 
 if __name__ == '__main__':      # pragma nocover
     pass
-    #ssf = SSF(errors='raise')
-    #print(ssf.format('#.E-0', 3.14))
-    #print(ssf.format('.m,m,', 1))
