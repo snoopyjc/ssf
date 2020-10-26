@@ -39,7 +39,7 @@ setup(
     name='ssf',
     packages=find_packages(include=['ssf', 'ssf.*']),
     package_data = {
-        '':['*.json', '*.tsv', '*.yaml', '*.bin']
+        '':['*.json', '*.tsv', '*.yaml', '*.gz', '*.bin']
         },
     setup_requires=setup_requirements,
     test_suite='tests',
