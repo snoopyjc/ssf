@@ -36,7 +36,8 @@ def test_oddities():
 def test_bad_oddities():
 #  it('should fail for bad formats', function() {
 #    var bad = ['##,##'];
-    bad = ['[', ']', '"', '\\', '_', '*']       # Python version allows ##,##
+    # Issue #12 bad = ['[', ']', '"', '\\', '_', '*']       # Python version allows ##,##
+    bad = ['[', '"', '\\', '_', '*']       # Issue #12: Python version allows ##,## and ']'
 #    var chk = function(fmt){ return function(){ SSF.format(fmt,0); }; };
     for fmt in bad:
         try:

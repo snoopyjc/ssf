@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ssf.py based on ssf.js: (C) 2013-present SheetJS -- http://sheetjs.com */
 #    var SSF = ({});
 import math
@@ -419,9 +420,22 @@ class SSF_LOCALE:
             sep = '-' if '-' in locale else '_'
             if locale_currency:
                 try:
-                    lcl.setlocale(lcl.LC_MONETARY, locale)
+                    try:        # Issue #10
+                        lcl.setlocale(lcl.LC_MONETARY, locale)
+                    except Exception:       # v0.2.1: Handle unix-based locales by changing '-' to '_' and doing some lookups
+                        locale2 = locale.replace('-', '_')
+                        linux_lang_map = dict(nb="bokmal", ca="catalan", hr="croatian", cs="czech", da="danish", de="deutsch",
+                            nl="dutch", et="estonian", fi="finnish", fr="french", gl="galician", el="greek", he="hebrew", hu="hungarian", 
+                            it="italian", ja="japanese", ko="korean", lt="lithuanian", no="norwegian", nn="nynorsk", pl="polish", pt="portuguese", ro="romanian",
+                            ru="russian", sk="slovak", sl="slovenian", es="spanish", sv="swedish", th="thai", tr="turkish")
+                        linux_lang_map['is'] = 'icelandic'  # 'is' is a keyword
+                        locale2 = linux_lang_map.get(locale2, locale2)
+                        lcl.setlocale(lcl.LC_MONETARY, locale2)
+
                     conv = lcl.localeconv()
                     """{'int_curr_symbol': 'USD', 'currency_symbol': '$', 'mon_decimal_point': '.', 'mon_thousands_sep': ',', 'mon_grouping': [3, 0], 'positive_sign': '', 'negative_sign': '-', 'int_frac_digits': 2, 'frac_digits': 2, 'p_cs_precedes': 1, 'p_sep_by_space': 0, 'n_cs_precedes': 1, 'n_sep_by_space': 0, 'p_sign_posn': 3, 'n_sign_posn': 0}"""
+                    if conv['currency_symbol'] == 'EUR':        # Issue #10
+                        conv['currency_symbol'] = '\u20AC'  # real Euro symbol
                     for item, value in conv.items():
                         setattr(self, item, value)      # Promote it to self
                 except Exception:
@@ -2805,10 +2819,16 @@ class SSF:
                 o = c
                 #while(++i < fmt.length && "0#?.,E+-%".indexOf(c=fmt.charAt(i)) > -1) o += c;
                 i += 1
+                got_E = False       # Issue #11
                 while i < len(fmt):
                     c = fmt[i]
                     # issues/50 if "0#?.,E+-%".find(c) > -1:
                     if "0#?.,E+-/".find(c) > -1:        # issues/50, issues/74
+                        # Issue #11: Only grab a plus or minus after an E, else it's not part of the number format
+                        if c == 'E':
+                            got_E = True
+                        if c in ('+', '-') and not got_E:
+                            break
                         o += c
                         i += 1
                         if c == '.':            # issues/68
@@ -2889,8 +2909,8 @@ class SSF:
                 continue
             #default:
             else:
-                if ",$-+/():!^&'~{}<>=€acfijklopqrtuvwxzP".find(c) == -1:
-                    self._value_error(f'unrecognized character {c} ({ord(c)}) in {fmt}')
+                # Issue #12 if ",$-+/():!^&'~{}<>=€acfijklopqrtuvwxzP".find(c) == -1:
+                    # Issue #12 self._value_error(f'unrecognized character {c} ({ord(c)}) in {fmt}')
                 out.append(SimpleNamespace(t='t', v=c))
                 i += 1
                 continue
@@ -3993,3 +4013,5 @@ class SSF:
 
 if __name__ == '__main__':      # pragma nocover
     pass
+    ssf = SSF()
+    print(ssf.format('[$kr]#,##0.00_-;[Red][$kr]#,##0.00-;[$kr]#,##0.00_-;@_-', -3.14))

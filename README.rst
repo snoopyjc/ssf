@@ -48,8 +48,7 @@ Example
 Credits
 -------
 
-This package is a Python port of the similarly named JavaScript library developed by
-SheetJSDev (https://github.com/SheetJSDev).
+This package is a Python port of the similarly named JavaScript library (https://github.com/SheetJS/ssf).
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 

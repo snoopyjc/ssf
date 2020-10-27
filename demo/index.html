@@ -16,6 +16,160 @@ a { text-decoration: none }
 <a href="https://github.com/snoopyjc/ssf/issues">Issues?  Something look weird?  Click here and report an issue</a>
 </pre>
 <table>
+	<tr><td><b>Category:</b></td><td><select id="category" onchange="change_category();">
+	<option value="General" selected>General</option>
+	<option value="Number">Number</option>
+	<option value="Currency">Currency</option>
+	<option value="Accounting">Accounting</option>
+	<option value="Date">Date</option>
+	<option value="Time">Time</option>
+	<option value="Percentage">Percentage</option>
+	<option value="Fraction">Fraction</option>
+	<option value="Scientific">Scientific</option>
+	<option value="Text">Text</option>
+	<option value="Special">Special</option>
+	<option value="Custom">Custom</option>
+	</select>
+	<tr style="display: table-row;" id="General"><td>&nbsp;</td></tr></div>
+	<tr style="display: none;" id="Number"><td>&nbsp;</td><td>
+		<table><tr><td>Decimal places:</td>
+				<td><select name="number_places" onchange="change_places('number');">
+				<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+				<option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+				<option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+				<option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+				<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+				<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+				<option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option>
+				<option value="28">28</option><option value="29">29</option><option value="30">30</option>
+				</select>
+				</td></tr>
+			<tr><td colspan=2><input type="checkbox" name="thousands_sep" value="true" onchange="change_category();">Use 1000 Separator (,)</input></td></tr>
+			<tr><td>Negative Numbers:</td><td><select name="number_negative" onchange="change_category();">
+						<option value="-">-1234.10</option>
+						<option value="red" style="color:red !important;">1234.10</option>
+						<option value="paren">(1234.10)</option>
+						<option value="redparen" style="color:red !important;">(1234.10)</option>
+					</select>
+			</td></tr></table>
+	</td></tr>
+	<tr style="display: none;" id="Currency"><td>&nbsp;</td><td>
+		<table><tr><td>Decimal places:</td>
+				<td><select name="currency_places" onchange="change_places('currency');">
+				<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+				<option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+				<option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+				<option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+				<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+				<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+				<option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option>
+				<option value="28">28</option><option value="29">29</option><option value="30">30</option>
+				</select>
+				</td></tr>
+			<!-- tr><td>Symbol:</td><td><input type="text" name="currency_symbol" size=3 value="$"></input></td></tr -->
+			<tr><td>Negative Numbers:</td><td><select name="currency_negative" onchange="change_category();">
+						<option value="-">-1234.10</option>
+						<option value="red" style="color:red !important;">1234.10</option>
+						<option value="paren">(1234.10)</option>
+						<option value="redparen" style="color:red !important;">(1234.10)</option>
+					</select>
+			</td></tr></table>
+	</td></tr>
+	<tr style="display: none;" id="Accounting"><td>&nbsp;</td><td>
+		<table><tr><td>Decimal places:</td>
+				<td><select name="accounting_places" onchange="change_category();">
+				<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+				<option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+				<option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+				<option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+				<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+				<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+				<option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option>
+				<option value="28">28</option><option value="29">29</option><option value="30">30</option>
+				</select>
+				</td></tr>
+			<!-- tr><td>Symbol:</td><td><input type="text" name="accounting_symbol" size=3 value="$"></input></td></tr -->
+			</table>
+	</td></tr>
+	<tr style="display: none;" id="Date"><td>&nbsp;</td>
+		<td><table><tr><td>Type:</td>
+		<td>
+			<select name="date_type" onchange="enter_format('date_type');">
+			<option value="Short Date" selected>*3/14/2020</option>
+			<option value="Long Date">*Saturday March 14, 2020</option>
+			</select>
+		</td></tr></table></td>
+	
+	</tr>
+	<tr style="display: none;" id="Time"><td>&nbsp;</td>
+		<td><table><tr><td>Type:</td>
+		<td>
+			<select name="time_type" onchange="enter_format('time_type');">
+			<option value="Time" selected>*1:30:55 PM</option>
+			</select>
+		</td></tr></table></td>
+	</tr>
+	<tr style="display: none;" id="Percentage"><td>&nbsp;</td><td>
+		<table><tr><td>Decimal places:</td>
+				<td><select name="percentage_places" onchange="change_category();">
+				<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+				<option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+				<option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+				<option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+				<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+				<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+				<option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option>
+				<option value="28">28</option><option value="29">29</option><option value="30">30</option>
+				</select>
+				</td></tr>
+			</table>
+	</td></tr>
+	<tr style="display: none;" id="Fraction"><td>&nbsp;</td>
+		<td><table><tr><td>Type:</td>
+		<td>
+			<select name="fraction_type" onchange="enter_format('fraction_type');">
+			<option value="# ?/?" selected>Up to one digit (1/4)</option>
+			<option value="# ??/??">Up to two digits (21/25)</option>
+			<option value="# ???/???">Up to three digits (312/943)</option>
+			<option value="# ?/2">As halves (1/2)</option>
+			<option value="# ?/4">As quarters (2/4)</option>
+			<option value="# ?/8">As eighths (4/8)</option>
+			<option value="# ?/16">As sixteenths (8/16)</option>
+			<option value="# ?/10">As tenths (3/10)</option>
+			<option value="# ?/100">As hundredths (30/100)</option>
+			</select>
+			</td></tr>
+		</table>
+	</td></tr>
+	<tr style="display: none;" id="Scientific"><td>&nbsp;</td><td>
+		<table><tr><td>Decimal places:</td>
+				<td><select name="scientific_places" onchange="change_category();">
+				<option value="0">0</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+				<option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+				<option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+				<option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+				<option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option>
+				<option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+				<option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option>
+				<option value="28">28</option><option value="29">29</option><option value="30">30</option>
+				</select>
+				</td></tr>
+				<tr><td colspan=2><input type="checkbox" name="positive_sign_exp" value="true" onchange="change_category();" checked>Display '+' in positive exponent</input>
+				</td></tr>
+			</table>
+	</td></tr>
+	<tr style="display: none;" id="Text"><td>&nbsp;</td></tr>
+	<tr style="display: none;" id="Special"><td>&nbsp;</td>
+		<td><table><tr><td>Type:</td>
+		<td><select name="special_type" onchange="enter_format('special_type');">
+		<option value="00000" selected>Zip Code</option>
+		<option value="00000-0000">Zip Code + 4</option>
+		<option value="[<=9999999]###-####;(###) ###-####">Phone Number</option>
+		<option value="000-00-0000">Social Security Number</option>
+		</select>
+		</table>
+	</td></tr>
+	<tr style="display: none;" id="Custom"><td>&nbsp;</td><td>Fill in field:</td></tr>
 	<tr><td><b>Format code:</b></td><td><input type="text" id="fmt" value="General" size="32"></td></tr>
 	<tr><td><b>Value:</b></td><td><input type="text" id="val" value="3.1415926535"></td></tr>
 	<tr><td><b>Width:</b></td><td><select id="width">
@@ -503,25 +657,118 @@ function update() {
   xhttp.send();
 }
 
+function update_fmt() {
+	var cat = document.getElementById('category');
+	cat.value = "Custom";
+	change_category();
+	update();
+}
+
+function change_category() {
+	var cat = document.getElementById('category');
+	var selected = cat.value;
+	var options = [ "General", "Number", "Currency", "Accounting", "Date", "Time", "Percentage", "Fraction",
+			"Scientific", "Text", "Special", "Custom"];
+	options.forEach(function(option) {
+		var row = document.getElementById(option);
+		if(option == selected) {
+			row.style = 'display: table-row;';
+		} else {
+			row.style = 'display: none;';
+		}
+	});
+	if(selected == "Special") {
+		enter_format("special_type");
+	} else if(selected == "Fraction") {
+		enter_format("fraction_type");
+	} else if(selected == "General") {
+		F.value = "General";
+		update();
+	} else if(selected == "Number") {
+		update_format(selected, ["number_places", "thousands_sep", "number_negative"]);
+	} else if(selected == "Currency") {
+		update_format(selected, ["currency_places", "currency_negative"]);
+	} else if(selected == "Accounting") {
+		update_format(selected, ["accounting_places"]);
+	} else if(selected == "Date") {
+		enter_format("date_type");
+	} else if(selected == "Time") {
+		enter_format("time_type");
+	} else if(selected == "Percentage") {
+		update_format(selected, ["percentage_places"]);
+	} else if(selected == "Scientific") {
+		update_format(selected, ["scientific_places", "positive_sign_exp"]);
+	} else if(selected == "Text") {
+		F.value = "@";
+		update();
+	}
+
+	return true;
+}
+
 /* Bind to relevant events */
 if(F.addEventListener) {
-	F.addEventListener('keyup', update);
+	F.addEventListener('keyup', update_fmt);
 	V.addEventListener('keyup', update);
 	W.addEventListener('change', update);
-	L.addEventListener('change', update);
+	L.addEventListener('change', change_category);
 } else if(F.attachEvent) {
-	F.attachEvent('onkeyup', update);
+	F.attachEvent('onkeyup', update_fmt);
 	V.attachEvent('onkeyup', update);
 	W.attachEvent('onchange', update);
-	L.attachEvent('onchange', update);
+	L.attachEvent('onchange', change_category);
 } else {
-	F.oninput = update;
+	F.oninput = update_fmt;
 	V.oninput = update;
 	W.onchange = update;
-	L.onchange = update;
+	L.onchange = change_category;
 }
 
 update();
+
+
+function update_format(selected, elements) {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+     var response = (decodeURIComponent(this.responseText.replace(/\n/, ""))).replace(/\n$/, "")
+     // alert(response)
+     F.value = response;
+     update();
+    }
+  };
+  var params = ''
+  for(var i = 0; i < elements.length; i++) {
+	  var elem = document.getElementsByName(elements[i])[0];
+	  if(elem.tagName == "INPUT" && elem.getAttribute("type") == "checkbox" && !elem.checked) continue;
+	  params += "&" + elements[i] + "=" + encodeURIComponent(elem.value);
+  }
+  xhttp.open("GET", "evalssf.py?getfmt="+encodeURIComponent(selected)+params+"&locale="+encodeURIComponent(L.value), true);
+  xhttp.send();
+}
+
+
+function change_places(name) {
+	var our_sel = document.getElementsByName(name+'_places')[0];
+	var selected = our_sel.value;
+	var sel = document.getElementsByName(name+'_negative')[0];
+	var options = sel.children;
+	var val30 = "1234.987654321098765432109876543210";
+	var val = val30.substr(0, parseInt(selected)+5);
+	if(selected == "0") val = "1234";
+	var vals = ['-'+val, val, '('+val+')', '('+val+')'];
+	for(var i = 0; i < vals.length; i++) {
+		options[i].innerHTML = vals[i];
+	}
+	change_category();
+}
+
+function enter_format(name) {
+	var sel = document.getElementsByName(name)[0];
+	F.value = sel.value;
+	update();
+}
+
 </script>
 </body>
 </html>
