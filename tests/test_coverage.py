@@ -3,8 +3,8 @@ from datetime import datetime, date, timedelta, time
 
 ssf = SSF(errors='raise')
 
-def test_code_coverage():
-    """New tests to improve code coverage."""
+def test_code_coverage1():
+    """Tests to improve code coverage."""
 
     # normalize_locale
     assert ssf.format('#,###', 1000, locale='de-DE.extra') == '1.000'
@@ -53,8 +53,8 @@ def test_code_coverage():
     assert ssf.format('?/?', 2) == '2/1'
 
     # write_num_flt / int
-    assert ssf.format('(###) ###\-####', 2125551212.01) == '(212) 555-1212'
-    assert ssf.format('(###) ###\-####', 2125551212) == '(212) 555-1212'
+    assert ssf.format(r'(###) ###\-####', 2125551212.01) == '(212) 555-1212'
+    assert ssf.format(r'(###) ###\-####', 2125551212) == '(212) 555-1212'
     assert ssf.format('00000-0000', 5270101.01) == '00527-0101'
     assert ssf.format('00000-0000', 5270101) == '00527-0101'
     assert ssf.format('0', True) == 'TRUE'
@@ -82,6 +82,7 @@ def test_code_coverage():
 
     assert ssf.format('[ss]', datetime(9999, 12, 31, 23, 59, 59, 999999)) == '##########'
 
+def test_code_coverage2():
     # _replace_numbers
     assert ssf.format('[$-1E000000]0.00E+00', -1.23E+45) == '-一.二三五百四五'
     assert ssf.format('[$-1E000000]0.00E+00', -1.23E-45) == '-一.二三五万四五'
@@ -105,4 +106,69 @@ def test_code_coverage():
     ssfp = SSF(errors='#')
     assert ssfp.format('[red', 0) == '##########'
 
+    # SSF_CALENDAR
 
+    try:
+        ssf.format('[$-7F0000]yyyy', 100)
+        assert False
+    except ValueError:
+        pass
+
+    # _escape_dots
+
+    assert ssf.format(r'[Red]\x"abc"0.0.0.0', 1234.567) == 'xabc1234.5.6.7'
+
+    # set_day_names
+
+    try:
+        ssf.set_day_names(['Monday', 'Tuesday'])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_day_names(["1", "2", "3", "4", "5", "6", "7"])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_day_names([1, 2, 3, 4, 5, 6, 7])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_day_names([(1,1), (2,2), (3,3), (4,4), (5,5), (6,6), (7,7)])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    # set_month_names
+
+    try:
+        ssf.set_month_names(['Jan', 'Feb'])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_month_names([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_month_names([0, ("J", "Jan"), ("F", "Feb"), ("M", "Mar"), ("A", "Apr"),
+            ("M", "May"), ("J", "Jun"), ("J", "Jul"), ("A", "Aug"), ("S", "Sep"),
+            ("O", "Oct"), ("N", "Nov"), ("D", "Dec")])  # Missing the long version
+        assert False    # Failed
+    except ValueError:
+        pass
+
+    try:
+        ssf.set_month_names([0, (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5), (6,6,6), (7,7,7), (8,8,8), (9,9,9),
+            (10,10,10), (11,11,11), (12,12,12)])
+        assert False    # Failed
+    except ValueError:
+        pass

@@ -9,6 +9,7 @@ from dateutil.tz import tzlocal
 from dateutil.parser import parse as date_parse
 import re
 import locale as lcl
+import ast              # Issue #13
 import calendar
 from babel.core import default_locale, Locale, UnknownLocaleError
 from babel.numbers import format_decimal, decimal
@@ -45,6 +46,14 @@ class SSF_CALENDAR:         # Issue #6
     def to_default(self, ymd):        # No changes
         return SimpleNamespace(year=ymd[0], month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=None)
 
+    def fixup_special(self, ymd):       # Issue #14
+        if ymd[0] == 1900:      # Handle a couple of 'special' dates which are not real dates
+            if ymd[1] == 1 and ymd[2] == 0:
+                ymd = (1900, 1, 1)
+            elif ymd[1] == 2 and ymd[2] == 29:
+                ymd = (1900, 3, 1)
+        return ymd
+
     era_list = None
 
     def to_japanese(self, ymd):       # Year changes to year in era
@@ -60,7 +69,8 @@ class SSF_CALENDAR:         # Issue #6
                         continue
                     ea.append(date_parse(dt).date())
                 SSF_CALENDAR.era_list = ea
-        dt = date(*ymd)
+        ymd2 = self.fixup_special(ymd)      # Issue #14
+        dt = date(*ymd2)
         result = self.to_default(ymd)
         for eno, e in enumerate(SSF_CALENDAR.era_list):
             if dt >= e:
@@ -76,6 +86,7 @@ class SSF_CALENDAR:         # Issue #6
         return SimpleNamespace(year=ymd[0] + 2333, month=ymd[1], day=ymd[2], isleap=calendar.isleap(ymd[0]), era=None)
 
     def to_hijri(self, ymd):          # Everything changes e.g. Mon Jan January 1/6/2020 -> AlEthnien Jamada El Oula Jamada El Oula 5/11/1441
+        ymd = self.fixup_special(ymd)      # Issue #14
         year, month, day = islamic.from_gregorian(*ymd)
         leap_year = islamic.leap(year)
         return SimpleNamespace(year=year, month=month, day=day, isleap=leap_year, era=None)
@@ -92,6 +103,7 @@ class SSF_CALENDAR:         # Issue #6
                                 # Av, Elul.  In years with a leap-month, "AdarI" is inserted before Adar, and Adar is renamed
                                 # as "AdarII".  Note: convertdate/hebrew uses the traditional month numbers, so
                                 # Nisan is 1.  5782 is a leap year.
+        ymd = self.fixup_special(ymd)      # Issue #14
         year, month, day = hebrew.from_gregorian(*ymd)
         leap_year = hebrew.leap(year)
         if leap_year:
@@ -122,11 +134,7 @@ class SSF_CALENDAR:         # Issue #6
             if os.path.isfile(lunarcal_file):
                 lunar_fd = open(lunarcal_file, 'rb')    # No, we never close it
                 SSF_CALENDAR.lunar_bin = mmap.mmap(lunar_fd.fileno(), 0, access=mmap.ACCESS_READ)
-        if ymd[0] == 1900:      # Handle a couple of 'special' dates which are not real dates
-            if ymd[1] == 1 and ymd[2] == 0:
-                ymd = (1900, 1, 1)
-            elif ymd[1] == 2 and ymd[2] == 29:
-                ymd = (1900, 3, 1)
+        ymd = self.fixup_special(ymd)      # Issue #14
         base = date(1900, 1, 1)
         delta = (date(*ymd) - base).days
         ndx = delta * 3
@@ -150,7 +158,38 @@ class SSF_CALENDAR:         # Issue #6
     def to_chinese_lunar(self, ymd):      # 0x13 - Same as x11
         return self.to_lunar_x0e(ymd)
 
+    um_bin = None           # Issue #15
+
     def to_um_al_qura(self, ymd):     # 0x17: See https://pypi.org/project/ummalqura/
+        ymd = self.fixup_special(ymd)      # Issue #14
+        if ymd[0] < 1937 or (ymd[0] == 1937 and (ymd[1] < 3 or (ymd[1] == 3 and ymd[2] <= 13))):    # Issue #15
+            #
+            # We use our own converter to match what Excel does in the range 1900-01-01 - 1937-03-12,
+            # since the ummalqura doesn't cover that date period.
+            # umcal.bin is a binary file containing 2 bytes per date since the epoch (1/1/1900)
+            # This 16-bit value is encoded as follows:
+            #
+            # 0             7       11    16
+            # | offset_year | month | day |
+            # |<   7 bits  >|< 4b  >|< 5b>|
+            #
+            # Where offset_year is year-1317
+            #
+            if SSF_CALENDAR.um_bin is None:     # Runs exactly once
+                umcal_file = os.path.join(os.path.dirname(__file__), 'umcal.bin')
+                if os.path.isfile(umcal_file):
+                    with open(umcal_file, 'rb') as uf:
+                        SSF_CALENDAR.um_bin = uf.read()
+            base = date(1900, 1, 1)
+            delta = (date(*ymd) - base).days
+            ndx = delta * 2
+            try:
+                value = int.from_bytes(SSF_CALENDAR.um_bin[ndx:ndx+2], byteorder='big')
+            except Exception:
+                value = 0
+            return SimpleNamespace(year=(value>>9)+1317, month=(value>>5)&0xF,
+                                   day=value&0x1F, isleap=calendar.isleap(ymd[0]), era=None)
+
         result = HijriDate(*ymd, gr=True)
         # Leap year corresponds to the Gregorian calendar and adds a 30th day to the 6th month
         return SimpleNamespace(year=result.year, month=result.month, day=result.day, isleap=calendar.isleap(ymd[0]), era=None)
@@ -160,12 +199,15 @@ class SSF_CALENDAR:         # Issue #6
         is an array of month names, starting with January in index 0, or None if
         we have no month names for this locale.  If isleap is True and this calendar
         has a leap month, then the result contains 13 entries, else it has the normal 12."""
-        if isleap and self.has_leap_month:
-            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code+SSF_CALENDAR._LEAP_MONTH_FLAG]
-            last_month = 13
-        else:
-            day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
-            last_month = 12
+        try:
+            if isleap and self.has_leap_month:
+                day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code+SSF_CALENDAR._LEAP_MONTH_FLAG]
+                last_month = 13
+            else:
+                day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
+                last_month = 12
+        except KeyError:
+            return None
         if locale_name not in day_month_map:
             return None
         months = []
@@ -178,6 +220,8 @@ class SSF_CALENDAR:         # Issue #6
         """Return the day names for this calendar in the given ``locale_name``.  The result
         is an array of day names, starting with Sunday in index 0, or None if
         we have no day names for this locale"""
+        if self.calendar_code not in SSF_CALENDAR.day_month_map:
+            return None
         day_month_map = SSF_CALENDAR.day_month_map[self.calendar_code]
         if locale_name not in day_month_map:
             return None
@@ -264,6 +308,7 @@ class SSF_LOCALE:
     lcid_max = 0
     MAX_AMPM=6      # Max chars in "Morning" or "Afternoon", else we use "AM/PM"
     GANNEN='元'                 # Issue #9
+    lc_all_map = None           # Issue #10
 
     def __init__(self, locale=None, locale_support=True, locale_currency=True, decimal_separator=None, thousands_separator=None, calendar_code=None):
         decimal.setcontext(decimal.Context(rounding=decimal.ROUND_HALF_UP))
@@ -419,29 +464,52 @@ class SSF_LOCALE:
 
             sep = '-' if '-' in locale else '_'
             if locale_currency:
-                try:
-                    try:        # Issue #10
-                        lcl.setlocale(lcl.LC_MONETARY, locale)
-                    except Exception:       # v0.2.1: Handle unix-based locales by changing '-' to '_' and doing some lookups
-                        locale2 = locale.replace('-', '_')
-                        linux_lang_map = dict(nb="bokmal", ca="catalan", hr="croatian", cs="czech", da="danish", de="deutsch",
-                            nl="dutch", et="estonian", fi="finnish", fr="french", gl="galician", el="greek", he="hebrew", hu="hungarian", 
-                            it="italian", ja="japanese", ko="korean", lt="lithuanian", no="norwegian", nn="nynorsk", pl="polish", pt="portuguese", ro="romanian",
-                            ru="russian", sk="slovak", sl="slovenian", es="spanish", sv="swedish", th="thai", tr="turkish")
-                        linux_lang_map['is'] = 'icelandic'  # 'is' is a keyword
-                        locale2 = linux_lang_map.get(locale2, locale2)
-                        lcl.setlocale(lcl.LC_MONETARY, locale2)
-
-                    conv = lcl.localeconv()
-                    """{'int_curr_symbol': 'USD', 'currency_symbol': '$', 'mon_decimal_point': '.', 'mon_thousands_sep': ',', 'mon_grouping': [3, 0], 'positive_sign': '', 'negative_sign': '-', 'int_frac_digits': 2, 'frac_digits': 2, 'p_cs_precedes': 1, 'p_sep_by_space': 0, 'n_cs_precedes': 1, 'n_sep_by_space': 0, 'p_sign_posn': 3, 'n_sign_posn': 0}"""
-                    if conv['currency_symbol'] == 'EUR':        # Issue #10
-                        conv['currency_symbol'] = '\u20AC'  # real Euro symbol
-                    for item, value in conv.items():
+                if SSF_LOCALE.lc_all_map is None:       # Issue #13
+                    lc_all_file = os.path.join(os.path.dirname(__file__), f'lc_all.tsv.gz')
+                    SSF_LOCALE.lc_all_map = {}
+                    if os.path.isfile(lc_all_file):
+                        with gzip.open(lc_all_file, 'rt', encoding='utf-8') as laf:
+                            lc_all = laf.read().splitlines()
+                        keys = lc_all[0].split('\t')
+                        for dm in lc_all[1:]:    # Skip heading
+                            fields = dm.split('\t')
+                            ln = fields[1]        # Locale name
+                            lc_all_map = {}
+                            for i, k in enumerate(keys[2:], start=2):   # Start after the locale
+                                value = fields[i]
+                                try:    # Convert ints back to int and lists back to list
+                                    value = ast.literal_eval(value)
+                                except Exception:  # If it's a string, then it's already ok
+                                    pass
+                                lc_all_map[k] = value
+                            SSF_LOCALE.lc_all_map[ln] = lc_all_map
+                if locale in SSF_LOCALE.lc_all_map:
+                    for item, value in SSF_LOCALE.lc_all_map[locale].items():
                         setattr(self, item, value)      # Promote it to self
-                except Exception:
-                    pass
-                finally:
-                    lcl.setlocale(lcl.LC_MONETARY, '') # Set it back to default
+                else:           # Note: Most cases are handled by the code above, but try looking it up if we don't otherwise know it
+                    try:
+                        try:        # Issue #10
+                            lcl.setlocale(lcl.LC_MONETARY, locale)
+                        except Exception:       # v0.2.1: Handle unix-based locales by changing '-' to '_' and doing some lookups
+                            locale2 = locale.replace('-', '_')
+                            linux_lang_map = dict(nb="bokmal", ca="catalan", hr="croatian", cs="czech", da="danish", de="deutsch",
+                                nl="dutch", et="estonian", fi="finnish", fr="french", gl="galician", el="greek", he="hebrew", hu="hungarian", 
+                                it="italian", ja="japanese", ko="korean", lt="lithuanian", no="norwegian", nn="nynorsk", pl="polish", pt="portuguese", ro="romanian",
+                                ru="russian", sk="slovak", sl="slovenian", es="spanish", sv="swedish", th="thai", tr="turkish")
+                            linux_lang_map['is'] = 'icelandic'  # 'is' is a keyword
+                            locale2 = linux_lang_map.get(locale2, locale2)
+                            lcl.setlocale(lcl.LC_MONETARY, locale2)
+
+                        conv = lcl.localeconv()     # pragma nocover
+                        """{'int_curr_symbol': 'USD', 'currency_symbol': '$', 'mon_decimal_point': '.', 'mon_thousands_sep': ',', 'mon_grouping': [3, 0], 'positive_sign': '', 'negative_sign': '-', 'int_frac_digits': 2, 'frac_digits': 2, 'p_cs_precedes': 1, 'p_sep_by_space': 0, 'n_cs_precedes': 1, 'n_sep_by_space': 0, 'p_sign_posn': 3, 'n_sign_posn': 0}"""
+                        if conv['currency_symbol'] == 'EUR':    # pragma nocover    # Issue #10
+                            conv['currency_symbol'] = '\u20AC'  # real Euro symbol
+                        for item, value in conv.items():    # pragma nocover
+                            setattr(self, item, value)      # Promote it to self
+                    except Exception:
+                        pass
+                    finally:
+                        lcl.setlocale(lcl.LC_MONETARY, '') # Set it back to default
 
             self.locale_name = locale
             try:
@@ -1018,8 +1086,8 @@ class SSF:
                 P = P_1
         if not mixed:
             return [0, sgn * P, Q]
-        q = math.floor(sgn * P/Q)
-        return [q, sgn*P - q*Q, Q]
+        q = math.floor(sgn * P/Q)       # pragma nocover - we never have mixed anymore
+        return [q, sgn*P - q*Q, Q]      # pragma nocover
 
     def _parse_date_code(self,v,opts,b2=None, abstime=False):
         if v > 2958465 or (v < 0 and not abstime):      # https://github.com/SheetJS/ssf/issues/71
@@ -1057,10 +1125,12 @@ class SSF:
            as January 0, 1900 rather than December 31, 1899.
         """
         if dt == 60:
-            dout = [1317,10,29] if b2 else [1900,2,29]
+            # Issue #14 dout = [1317,10,29] if b2 else [1900,2,29]
+            dout = [1900,2,29]  # Issue #14
             dow=3
         elif dt == 0:
-            dout = [1317,8,29] if b2 else [1900,1,0]
+            # Issue #14 dout = [1317,8,29] if b2 else [1900,1,0]
+            dout = [1900,1,0]   # Issue #14
             dow=6
         else:
             if dt > 60:
@@ -1077,7 +1147,7 @@ class SSF:
                 dow = (dow + 6) % 7     # Fixup day of week for the year 1900 bug, described above
             #if b2:
                 #dow = SSF._fix_hijri(dt, d, dout)
-            out.L, out.e = self._fix_calendar(dout, b2)
+        out.L, out.e = self._fix_calendar(dout, b2)
         
         out.y = dout[0]
         out.m = dout[1]
@@ -1125,7 +1195,7 @@ class SSF:
     #/* The longest 32-bit integer text is "-4294967296", exactly 11 chars */
     #function general_fmt_int(v) { return v.toString(10); }
     @staticmethod
-    def _general_fmt_int(v):
+    def _general_fmt_int(v):        # pragma nocover
         return str(v)
     #SSF._general_int = general_fmt_int;
     _general_int = _general_fmt_int
@@ -1280,7 +1350,7 @@ class SSF:
         if isinstance(v, str):
             return align_it(v, width, align or 'left')
         #case 'boolean': return v ? "TRUE" : "FALSE";
-        if isinstance(v, bool):
+        if isinstance(v, bool):     # pragma nocover - bool is handled elsewhere
             if width is None:
                 return ("FALSE", "TRUE")[v]
             elif v:         # Center it
@@ -1852,7 +1922,7 @@ class SSF:
 
             #if((r = fmt.match(/^([0#]+)(\\?-([0#]+))+$/))) {
             r = re.match(r'^([0#]+)(\\?-([0#]+))+$', fmt)
-            if r:
+            if r:                       # pragma nocover - covered by the general case
                 o = SSF._strrev(write_num_flt(type, re.sub(r'[\\-]',"", fmt), val))
                 ri = 0
                 #return _strrev(_strrev(fmt.replace(/\\/g,"")).replace(/[0#]/g,function(x){return ri<o.length?o.charAt(ri++):x==='0'?'0':"";}));
@@ -2161,7 +2231,7 @@ class SSF:
 
             #if((r = fmt.match(/^([0#]+)(\\?-([0#]+))+$/))) {
             r = re.match(r'^([0#]+)(\\?-([0#]+))+$', fmt)       # Zip+ext like 00000-0000
-            if r:
+            if r:           # pragma nocover - covered by the general case
                 o = SSF._strrev(write_num_int(type, re.sub('[\\-]',"", fmt), val))
                 ri = 0
                 #return _strrev(_strrev(fmt.replace(/\\/g,"")).replace(/[0#]/g,function(x){return ri<o.length?o.charAt(ri++):x==='0'?'0':"";}));
@@ -3830,6 +3900,10 @@ class SSF:
             except Exception:
                 self._value_error(f'set_day_names needs a tuple for each of the 7 entries')
                 return
+            for e in t:
+                if not isinstance(e, str):
+                    self._value_error(f'set_day_names needs a tuple of strings for each of the 7 entries')
+                    return
         self.curl.days = tup[6:] + tup[:6]
 
     def get_month_names(self):
@@ -3857,6 +3931,10 @@ class SSF:
             except Exception:
                 self._value_error(f'set_month_names needs a tuple for each of the 13 entries, except the first')
                 return
+            for e in t:
+                if not isinstance(e, str):
+                    self._value_error(f'set_month_names needs a tuple of strings for each of the 13 entries, except the first')
+                    return
         self.curl.months = tup[1:]
 
     def load_entry(self, fmt, idx=None):
@@ -4013,5 +4091,5 @@ class SSF:
 
 if __name__ == '__main__':      # pragma nocover
     pass
-    ssf = SSF()
-    print(ssf.format('[$kr]#,##0.00_-;[Red][$kr]#,##0.00-;[$kr]#,##0.00_-;@_-', -3.14))
+    #ssf = SSF()
+    #print(ssf.get_format('Accounting'))

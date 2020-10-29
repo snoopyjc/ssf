@@ -11,7 +11,10 @@ def test_issue_1():
     assert ssf.format('geeee', 1) == '1900'
 
 def test_issue_5():
-    import requests
+    try:
+        import requests
+    except Exception:
+        return      # v0.2.2: Ok to skip this test if we don't have requests
 
     resp = requests.get('http://www.snoopyjc.org/ssf/')
     assert '<select id="category"' in resp.text
@@ -25,6 +28,12 @@ def test_issue_7():
 
 def test_issue_10(monkeypatch):
     import locale
+
+    try:        # v0.2.2
+        locale.setlocale(locale.LC_ALL, 'en-US')        # This raises locale.Error on linux
+        locale.setlocale(locale.LC_ALL, '')
+    except locale.Error:
+        return              # Only do this test on Windoze!!
 
     real_setlocale = locale.setlocale
 
@@ -49,7 +58,7 @@ def test_issue_10(monkeypatch):
         ssfu = SSF(locale='nl')
         assert ssfu.format('Currency', 1.98) == '\u20AC 1,98'
         ssfi = SSF(locale='is')
-        assert ssfi.format('Accounting', 12.98) == ' 13 kr.'
+        assert ssfi.format('Accounting', 12.98) == ' 13 kr'
         assert ssfu.format('#,###.00', 1234.56, locale='de-DE') == '1.234,56'
     finally:
         monkeypatch.setattr(locale, 'setlocale', real_setlocale)
@@ -60,3 +69,70 @@ def test_issue_11():
 def test_issue_12():
     ssfa = SSF(locale='ar', errors='raise')
     assert ssfa.format('Short Date', 3.14159) == '03\u200f/1\u200f/00'
+
+def test_issue_13(monkeypatch):
+    import locale
+
+    real_setlocale = locale.setlocale
+
+    def mock_setlocale(typ, locale):
+        assert False        # Shouldn't come here!
+
+    monkeypatch.setattr(locale, 'setlocale', mock_setlocale)
+    try:
+        ssfu = SSF(locale='nl')
+        assert ssfu.format('Currency', 1.98) == '\u20AC 1,98'
+        ssfi = SSF(locale='is')
+        assert ssfi.format('Accounting', 12.98) == ' 13 kr'
+        assert ssfu.format('#,###.00', 1234.56, locale='de-DE') == '1.234,56'
+    finally:
+        monkeypatch.setattr(locale, 'setlocale', real_setlocale)
+
+def test_issue_14():
+    from dateutil.parser import parse
+    from datetime import date, timedelta
+
+    adjusted = {0x03, 0x05, 0x07}
+    converted = {0x06, 0x08, 0x0E, 0x11, 0x12, 0x13, 0x17}
+    def assert_delta_1(ymd, ymd_prior):
+        assert (ymd[0] == ymd_prior[0] and ymd[1] == ymd_prior[1] and ymd[2] == ymd_prior[2] + 1) or \
+            (ymd[0] == ymd_prior[0] and ymd[1] == ymd_prior[1] +1 and ymd[2] == 1) or \
+            (ymd[0] == ymd_prior[0] + 1 and ymd[1] == 1 and ymd[2] == 1)
+
+    for cal in range(0x20):
+        prior = date(1899,12,31)
+        ymd_prior = None
+        for dt in range(61):
+            fmt = f'[$-{cal:02X}0000]yyyy-mm-dd'
+            result = ssf.format(fmt, dt)
+            if cal in converted:
+                if dt == 0 or dt == 60:
+                    assert result == ssf.format(fmt, dt+1)
+                else:
+                    r_split = result.split('-')
+                    ymd = list(map(int, r_split))
+                    if ymd_prior:
+                        assert_delta_1(ymd, ymd_prior)
+                    ymd_prior = ymd
+            elif cal in adjusted:
+                if dt == 0 or dt == 60:
+                    nxt = ssf.format(fmt, dt+1)
+                    assert_delta_1(list(map(int, nxt.split('-'))), list(map(int, result.split('-'))))
+                else:
+                    ymd = list(map(int, result.split('-')))
+                    if ymd_prior:
+                        assert_delta_1(ymd, ymd_prior)
+                    ymd_prior = ymd
+            else:
+                if dt == 0 and result == '1900-01-00':
+                    continue
+                elif dt == 60 and result == '1900-02-29':
+                    continue
+                else:
+                    dtr = parse(result).date()
+                    assert dtr == prior + timedelta(days=1)
+                    prior = dtr
+
+
+
+

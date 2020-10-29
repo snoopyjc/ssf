@@ -1,0 +1,3 @@
+ssf.format([$-2060401]d\ mmmm\ yyyy;@, 0.0) = (actual/expected)
+٢٨ شعبان ١٣١٧
+٠ محرم ١٩٠٠
