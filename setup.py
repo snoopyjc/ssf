@@ -29,6 +29,10 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
     description="Spreadsheet Number Format processor - a Python port of SheetJS/ssf.js",
     install_requires=requirements,
@@ -45,6 +49,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/snoopyjc/ssf',
-    version='0.2.2',
+    version='0.2.3',
     zip_safe=False,
 )

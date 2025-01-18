@@ -567,13 +567,13 @@ class SSF_LOCALE:
                                         locale.months['format']['wide'][month]))
                 self.months_leap = self.months
             if locale:
-                self.decimal_point = decimal_separator or locale.number_symbols['decimal']
-                self.thousands_sep = thousands_separator or locale.number_symbols['group']
-                self.plus_sign = locale.number_symbols['plusSign']
-                self.minus_sign = locale.number_symbols['minusSign']
-                self.percent_sign = locale.number_symbols['percentSign']
-                self.time_separator = locale.number_symbols['timeSeparator']
-                self.exponential = locale.number_symbols['exponential']
+                self.decimal_point = decimal_separator or self.get_number_symbols_property(locale, 'decimal')
+                self.thousands_sep = thousands_separator or self.get_number_symbols_property(locale, 'group')
+                self.plus_sign = self.get_number_symbols_property(locale, 'plusSign')
+                self.minus_sign = self.get_number_symbols_property(locale, 'minusSign')
+                self.percent_sign = self.get_number_symbols_property(locale, 'percentSign')
+                self.time_separator = self.get_number_symbols_property(locale, 'timeSeparator')
+                self.exponential = self.get_number_symbols_property(locale, 'exponential')
                 self.time_format = locale.time_formats['medium'].pattern.replace('a', 'AM/PM')
                 self.short_date_format = locale.date_formats['short'].pattern.replace('E', 'd'). \
                         replace('M', 'm')
@@ -591,6 +591,13 @@ class SSF_LOCALE:
                     self.thousands_sep = thousands_separator
             else:
                 raise ValueError(f'Locale {self.locale_name} not found!')
+
+    def get_number_symbols_property(self, locale, prop):
+        """Get a property from the number symbols for the given locale"""
+        # https://github.com/snoopyjc/ssf/issues/17
+        old_val = locale.number_symbols.get(prop)
+        new_val = locale.number_symbols.get('latn', {}).get(prop)
+        return old_val or new_val
 
     def normalize_locale(self, locale):
         """Normalize locale based on examples in the lcid/locale map"""
@@ -638,14 +645,15 @@ class SSF_LOCALE:
             df = ls-ln
             return s[:df] + self.commaify(s[df:])
         if self.locale is not None:
+            locale_group = self.get_number_symbols_property(self.locale, 'group')
             if s[0] == '0':         # Special processing for leading zeros
                 i = int('1'+s)      # Protect them with a leading '1', which we later remove
                 result = format_decimal(i, locale=self.locale)
-                result = re.sub(r'^1(?:' + re.escape(self.locale.number_symbols['group']) + r')?(.*)$', r'\1', result)
+                result = re.sub(r'^1(?:' + re.escape(locale_group) + r')?(.*)$', r'\1', result)
             else:
                 result = format_decimal(int(s), locale=self.locale)
-            if self.thousands_sep != self.locale.number_symbols['group']:
-                result = result.replace(self.locale.number_symbols['group'], self.thousands_sep)
+            if self.thousands_sep != locale_group:
+                result = result.replace(locale_group, self.thousands_sep)
             return result
 
         w = self.grouping[0] if len(self.grouping) >= 1 else 3

@@ -2,6 +2,11 @@
 History
 =======
 
+0.2.3 (2025-01-18)
+------------------
+
+* Fix issues #17: Add support for babel>=2.14.0 and updated Locale.number_symbols format
+
 0.2.2 (2020-10-29)
 ------------------
 
